@@ -184,15 +184,16 @@ def splash_cru_cli(
     for ky, src in climate_sources.items():
         raw_data = xarray.load_dataarray(src)
 
-        # reset the time indices from mid month coords in data files to start month
-        # values (and then back to nano-second precision to suppress a warning)
+        # Reset the time indices from the mid month coords in the data files to the
+        # first day of each month, making it easy to fill monthly data forward to fill
+        # daily values (and then back to nano-second precision to suppress a warning)
         month_start = raw_data.time.values.astype("datetime64[M]").astype(
             "datetime64[ns]"
         )
         raw_data.coords["time"] = month_start
 
-        # Copy the start of the last month to the end last month to make forward fill to
-        # last day
+        # Copy the start of the last month to the end of the last month, which forces
+        # the forward fill to extrapolate for the full month.
         pad_data = raw_data.isel(time=-1)
         pad_data.coords["time"] = np.datetime64("2020-12-31").astype("datetime64[ns]")
         climate_data[ky] = xarray.concat([raw_data, pad_data], dim="time")
