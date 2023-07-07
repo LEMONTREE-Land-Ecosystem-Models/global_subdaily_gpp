@@ -1,3 +1,8 @@
 # Ignore data files in the data directory
 data/*.nc
 
+# Python caches
+__pycache__
+
+# Mac directory store
+.DS_Store
