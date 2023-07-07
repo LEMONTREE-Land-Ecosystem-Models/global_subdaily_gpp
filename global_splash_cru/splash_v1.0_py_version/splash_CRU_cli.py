@@ -2,18 +2,18 @@
 
 # Single cell run for testing (cell is ~ Crediton)
 python splash_CRU_cli.py \
-    --tmp ../../cru_splash/cru_2001_2020_tmp.nc \
-    --pre ../../cru_splash/cru_2001_2020_pre.nc \
-    --cld ../../cru_splash/cru_2001_2020_cld.nc \
-    --elv ../../cru_splash/Asurf_land_cells.nc \
+    --tmp ../../data/cru_2001_2020_tmp.nc \
+    --pre ../../data/cru_2001_2020_pre.nc \
+    --cld ../../data/cru_2001_2020_cld.nc \
+    --elv ../../data/Asurf_land_cells.nc \
     --cell_ids 202672
 
 # Select a subset block of cells to run
 python splash_CRU_cli.py \
-    --tmp ../../cru_splash/cru_2001_2020_tmp.nc \
-    --pre ../../cru_splash/cru_2001_2020_pre.nc \
-    --cld ../../cru_splash/cru_2001_2020_cld.nc \
-    --elv ../../cru_splash/Asurf_land_cells.nc \
+    --tmp ../../data/cru_2001_2020_tmp.nc \
+    --pre ../../data/cru_2001_2020_pre.nc \
+    --cld ../../data/cru_2001_2020_cld.nc \
+    --elv ../../data/Asurf_land_cells.nc \
     --block_number 0
     --total_blocks 30
 
