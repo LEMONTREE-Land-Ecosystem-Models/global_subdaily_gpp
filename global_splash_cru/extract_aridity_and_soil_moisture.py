@@ -11,7 +11,7 @@ def extract_annual_aridity(basename: Path):
     estimates of the aridity index."""
 
     # Get a list of the output files and a dict to store summaries
-    results_files = basename / Path("results").glob("results_block_*.nc")
+    results_files = Path(basename / "results").glob("results_block_*.nc")
     sections = {}
     soilm_sections = {}
 
@@ -61,7 +61,7 @@ def extract_annual_aridity(basename: Path):
     data = data.sortby("cell_id")
 
     # Load WFDE5 elevation to add lat and lon data indexed by cell ids
-    elev = xarray.load_dataarray("Asurf_land_cells.nc")
+    elev = xarray.load_dataarray(basename.parent/ "data" / "Asurf_land_cells.nc")
     data["lat"] = xarray.DataArray(elev.lat.data, dims=("cell_id",))
     data["lon"] = xarray.DataArray(elev.lon.data, dims=("cell_id",))
 

@@ -9,3 +9,10 @@ __pycache__
 
 # pyenv settings
 .python-version
+
+# HPC output files
+*.pbs.sh.o*
+
+# Output results files
+global_splash_cru/results/*.nc
+
