@@ -61,7 +61,9 @@ def extract_annual_aridity(basename: Path):
     data = data.sortby("cell_id")
 
     # Load WFDE5 elevation to add lat and lon data indexed by cell ids
-    elev = xarray.load_dataarray(basename.parent/ "data" / "Asurf_land_cells.nc")
+    elev = xarray.load_dataarray(basename.parent / "data" / "Asurf_land_cells.nc")
+    elev = elev.where(elev.cell_id.isin(data.cell_id), drop=True)
+
     data["lat"] = xarray.DataArray(elev.lat.data, dims=("cell_id",))
     data["lon"] = xarray.DataArray(elev.lon.data, dims=("cell_id",))
 
@@ -88,7 +90,7 @@ def extract_annual_aridity(basename: Path):
     # Set odd infinity values to np.nan
     clim_data = data["clim_AI_sum_meth"]
     data["clim_AI_sum_meth"] = clim_data.where(clim_data < np.inf, np.nan)
-    data["log_clim_AI_sum_meth"] = data["clim_AI_sum_meth"].log()
+    # data["log_clim_AI_sum_meth"] = data["clim_AI_sum_meth"].log()
 
     # Export AI summary
     data.to_netcdf(basename / "aridity_index_data.nc")
@@ -97,9 +99,11 @@ def extract_annual_aridity(basename: Path):
     # Soil moisture to grid
     # ----------------------------------
 
-    # Compile the sections into a single dataset along the cell_id axis and then
-    # calculate climatological AI across years
-    soilm_data = xarray.concat(soilm_sections.values(), dim="cell_id")
+    # Compile the sections into a single dataset along the cell_id axis and promote to a
+    # dataset to add new lat and lon variables for indexing back to gridded data
+    soilm_data = xarray.Dataset(
+        {"wn": xarray.concat(soilm_sections.values(), dim="cell_id")}
+    )
 
     # Sort the dataset  to match the grid order
     soilm_data = soilm_data.sortby("cell_id")
