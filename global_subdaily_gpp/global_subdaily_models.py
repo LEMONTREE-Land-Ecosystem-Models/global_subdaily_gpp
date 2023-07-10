@@ -103,6 +103,13 @@ temp_xarray = temp_source["Tair"][idx_obj]
 # Extract temperature data and convert to °C
 temp_data = temp_xarray.compute().data - 273.15
 
+# Remove very cold cells
+temp_data[temp_data < -25.0] = np.nan
+
+# ----------------------------------
+# PATM DATA
+# ----------------------------------
+
 # Possible sources for atmospheric pressure
 use_constant_patm = True
 
@@ -133,6 +140,7 @@ qair_source = xarray.open_mfdataset(qair_files, chunks=chunks)
 qair_data = qair_source["Qair"][idx_obj].compute().data
 # Function takes pressure in kPa and returns kPa
 vpd_data = convert_sh_to_vpd(sh=qair_data, ta=temp_data, patm=patm_data / 1000) * 1000
+
 # Set negative values to zero
 vpd_data = np.clip(vpd_data, 0, np.inf)
 
@@ -219,7 +227,7 @@ co2_data = np.broadcast_to(hourly_co2.data[:, np.newaxis, np.newaxis], temp_data
 
 print(
     f"""
-Data loading finished after {script_start - time.time()} seconds:
+Data loading finished after {time.time() - script_start} seconds:
 - lon_idx = {lon_idx}
 - temp_data.shape = {temp_data.shape}
 - patm_data.shape = {patm_data.shape}
@@ -274,7 +282,7 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     # for the left hand edge using this_lon_idx and add 1 minute to get the band centre.
 
     local_time_delta = (24 * (this_lon_idx / 720) - 12) * 60 + 1
-    local_time_delta = np.timedelta64(local_time_delta, "M")
+    local_time_delta = np.timedelta64(int(local_time_delta), "m")
     local_time = utc_times + local_time_delta
 
     # Set a half hourly window around noon - with hourly data this is actually just
@@ -306,11 +314,11 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
 
     print(
         f"Models fitted on lon_idx {this_lon_idx} after "
-        f"{script_start - time.time()} seconds"
+        f"{time.time() - script_start} seconds"
     )
 
 # Concatenate the results along the longitude axis and export
 out_data = xarray.concat(results, dim="lon")
 out_data.to_netcdf(output_path / f"gpp_data_{array_index}.nc")
 
-print(f"Script completed after {script_start - time.time()} seconds")
+print(f"Script completed after {time.time() - script_start} seconds")
