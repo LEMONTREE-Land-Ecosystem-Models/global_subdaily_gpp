@@ -8,7 +8,7 @@
 # The PBS lines above set the HPC job management details: 50 subjobs, each of which
 # needs one compute node with 8 cpus and 40GB of RAM, running for less than 1 day.
 
-BASEPATH="/rds/general/project/lab-prentice-realm-data/live/global_subdaily/"
+BASEPATH="/rds/general/project/lab-prentice-realm-data/live/global_subdaily_gpp/"
 
 # Stage the input files to avoid issues with multiple jobs reading them
 cp $BASEPATH/data/cru_2001_2020_tmp.nc $TMPDIR/cru_2001_2020_tmp.nc

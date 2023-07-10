@@ -6,3 +6,6 @@ __pycache__
 
 # Mac directory store
 .DS_Store
+
+# pyenv settings
+.python-version
