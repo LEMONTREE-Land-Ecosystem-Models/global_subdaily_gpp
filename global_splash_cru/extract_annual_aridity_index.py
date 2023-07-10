@@ -10,7 +10,7 @@ def extract_annual_aridity():
     estimates of the aridity index."""
 
     # Get a list of the output files and a dict to store summaries
-    results_files = Path(".").glob("results_block_*.nc")
+    results_files = Path("results").glob("results_block_*.nc")
     sections = {}
 
     for each_file in results_files:
