@@ -34,7 +34,7 @@ fapar_path = Path("/rds/general/project/lemontree/live/derived/SNU_Ryu/FPAR2_05d
 co2_path = Path("/rds/general/project/lemontree/live/source/NOAA_CO2/co2_mm_gl.csv")
 # Output directory
 output_path = Path(
-    "/rds/general/project/lab-prentice-realm-data/live/global_subdaily_gpp/"
+    "/rds/general/project/lab-prentice-realm-data/live/global_subdaily_models/"
     "global_subdaily_gpp/results"
 )
 

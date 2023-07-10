@@ -18,20 +18,22 @@ def extract_annual_aridity():
         print(each_file)
         data = xarray.open_dataset(each_file)
 
-        # Get the data for precipitation and PET and daily AI
+        # Get the data for precipitation, PET and soil moisture
         precip = data["pre"]
         pet = data["pet"]
-        daily_AI = pet / precip
 
         # Annual total precipitation and PET and hence aridity index by year
         annual_AI_sum_meth = (
             pet.groupby("time.year").sum() / precip.groupby("time.year").sum()
         )
-        annual_AI_mean_meth = daily_AI.groupby("time.year").mean()
 
         # 20 year climatological
         clim_AI_sum_meth = pet.sum(dim="time") / precip.sum(dim="time")
-        clim_AI_mean_meth = daily_AI.mean(dim="time")
+
+        # # Calculations using daily average values
+        # daily_AI = pet / precip
+        # annual_AI_mean_meth = daily_AI.groupby("time.year").mean()
+        # clim_AI_mean_meth = daily_AI.mean(dim="time")
 
         sections[each_file] = xarray.Dataset(
             {
