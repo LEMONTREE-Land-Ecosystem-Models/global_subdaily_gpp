@@ -24,7 +24,7 @@ source activate python3.10
 # Run the executable, passing in the subjob array index as the block number. The number
 # of processes sets the size of the pool of CPUs used to crunch the list of grid cells.
 # 
-python3 $BASEPATH/py_version/splash_CRU_cli.py \
+python3 $BASEPATH/global_splash_cru/splash_v1.0_py_version/splash_CRU_cli.py \
     --tmp $TMPDIR/cru_2001_2020_tmp.nc \
     --pre $TMPDIR/cru_2001_2020_pre.nc \
     --cld $TMPDIR/cru_2001_2020_cld.nc \
