@@ -294,7 +294,7 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     )
 
     # Fit the subdaily P Model
-    fs_pmod = FastSlowPModel(
+    subdaily_pmod = FastSlowPModel(
         env=pm_env,
         fs_scaler=fsscaler,
         fapar=fapar_data[lidx],
@@ -306,8 +306,8 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     # Format and store the GPP data
     res = xarray.Dataset(
         {
-            "standard_gpp": xarray.DataArray(temp_data, coords=band_coords),
-            "subdaily_gpp": xarray.DataArray(temp_data, coords=band_coords),
+            "standard_gpp": xarray.DataArray(standard_pmod.gpp, coords=band_coords),
+            "subdaily_gpp": xarray.DataArray(subdaily_pmod.gpp, coords=band_coords),
         }
     )
     results.append(res)

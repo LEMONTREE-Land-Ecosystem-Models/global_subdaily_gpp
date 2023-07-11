@@ -54,3 +54,9 @@ calculated using CRU TS4.06 data, provided as 0.5° resolution monthly data:
 
 The datasets are reduced to land cells only and then these are processed in parallel
 blocks, using multiple cores with each block to further accelerate the calculations.
+
+### Validation of SPLASH data
+
+The data and scripts in the `sites_comparison` directory are used to run the SPLASH
+model for 67 sites used by Giulia in FluxNet site analyses. These can then be compared
+against the outputs of the earlier analyses.
