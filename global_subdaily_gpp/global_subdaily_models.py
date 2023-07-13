@@ -101,7 +101,7 @@ idx_obj = (
 temp_data = temp_source["Tair"][idx_obj].compute() - 273.15
 
 # Remove very cold cells
-temp_data[temp_data < -25.0] = np.nan
+temp_data = temp_data.where(temp_data >= -25.0, np.nan)
 
 # ----------------------------------
 # PATM DATA
