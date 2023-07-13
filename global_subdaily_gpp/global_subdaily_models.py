@@ -238,6 +238,18 @@ Data loading finished after {time.time() - script_start} seconds:
 """
 )
 
+if os.environ.get("WRITE_PMODEL_INPUTS"):
+    out = xarray.Dataset(
+        {
+            "temp": temp_data,
+            "patm": patm_data,
+            "vpd": vpd_data,
+            "co2": co2_data,
+            "fapar": fapar_data,
+            "ppfd": ppfd_data,
+        }
+    ).to_netcdf(output_path / f"inputs_data_{array_index}.nc")
+
 # ----------------------------------
 # MODEL FITTING
 # ----------------------------------
