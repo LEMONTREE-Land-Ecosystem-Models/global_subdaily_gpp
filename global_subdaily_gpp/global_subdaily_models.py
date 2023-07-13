@@ -97,11 +97,8 @@ idx_obj = (
     slice(lon_idx, lon_idx + stripe_width),
 )
 
-# Retain the temperature xarray to use the coordinates for outputs.
-temp_xarray = temp_source["Tair"][idx_obj]
-
 # Extract temperature data and convert to °C
-temp_data = temp_xarray.compute().data - 273.15
+temp_data = temp_source["Tair"][idx_obj].compute() - 273.15
 
 # Remove very cold cells
 temp_data[temp_data < -25.0] = np.nan
@@ -119,14 +116,16 @@ if use_constant_patm:
     elev_slice = asurf_data.data[tuple(list(idx_obj[1:]))]
     patm_slice = calc_patm(elev_slice)
     # - broadcast to shape of time series
-    patm_data = np.broadcast_to(patm_slice, temp_data.shape)
+    patm_data = xarray.DataArray(
+        np.broadcast_to(patm_slice, temp_data.shape), coords=temp_data.coords
+    )
 else:
     # Find the atmospheric pressure source files and open them as a dataset
     patm_files = list((wfde_path / "PSurf").rglob("*.nc"))
     patm_source = xarray.open_mfdataset(patm_files, chunks=chunks)
 
     # Extract atmospheric pressure in Pa
-    patm_data = patm_source["PSurf"][idx_obj].compute().data
+    patm_data = patm_source["PSurf"][idx_obj].compute()
 
 # ----------------------------------
 # VPD DATA
@@ -143,6 +142,9 @@ vpd_data = convert_sh_to_vpd(sh=qair_data, ta=temp_data, patm=patm_data / 1000) 
 
 # Set negative values to zero
 vpd_data = np.clip(vpd_data, 0, np.inf)
+
+# Convert to xarray
+vpd_data = xarray.DataArray(vpd_data, coords=temp_data.coords)
 
 # ----------------------------------
 # PPFD DATA
@@ -164,7 +166,7 @@ idx_obj = (
 )
 
 # Extract shortwave downwelling radiation and convert to PPFD
-ppfd_data = swdown_source["SWdown"][idx_obj].compute().data * 2.04
+ppfd_data = swdown_source["SWdown"][idx_obj].compute() * 2.04
 
 # ----------------------------------
 # FAPAR DATA
@@ -188,7 +190,7 @@ idx_obj_fapar = (
 )
 
 # Extract the data
-fapar_data = fapar_hourly[idx_obj_fapar].compute().data
+fapar_data = fapar_hourly[idx_obj_fapar].compute()
 
 # ----------------------------------
 # CO2 DATA
@@ -222,8 +224,10 @@ hourly_co2 = hourly_co2[
     )
 ]
 
-# Broadcast the data to the correct shape
+# Broadcast the data to the correct shape and convert to xarray
 co2_data = np.broadcast_to(hourly_co2.data[:, np.newaxis, np.newaxis], temp_data.shape)
+
+co2_data = xarray.DataArray(co2_data, coords=temp_data.coords)
 
 print(
     f"""
@@ -257,7 +261,7 @@ if os.environ.get("WRITE_PMODEL_INPUTS"):
 # Loop over the loaded longitudinal bands, correcting the datetimes from UTC to local
 # time for calculating subdaily representative times
 
-utc_times = temp_xarray.time.values
+utc_times = temp_data.time.values
 lon_bands = np.arange(lon_idx, lon_idx + stripe_width)
 
 
@@ -266,17 +270,20 @@ results = []
 for data_idx, this_lon_idx in enumerate(lon_bands):
     # Indexer for the longitudinal band
     lidx = (
-        slice(temp_xarray.sizes["time"]),
+        slice(temp_data.sizes["time"]),
         slice(asurf_data.sizes["lat"]),
         slice(data_idx, data_idx + 1),
     )
 
     # Xarray coordinates for the band
-    band_coords = temp_xarray[lidx].coords
+    band_coords = temp_data[lidx].coords
 
     # Get the P Model environment
     pm_env = PModelEnvironment(
-        tc=temp_data[lidx], patm=patm_data[lidx], vpd=vpd_data[lidx], co2=co2_data[lidx]
+        tc=temp_data.data[lidx],
+        patm=patm_data.data[lidx],
+        vpd=vpd_data.data[lidx],
+        co2=co2_data.data[lidx],
     )
 
     # Print out a data summary for the photosynthetic environment
@@ -284,7 +291,9 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
 
     # Fit the standard P Model
     standard_pmod = PModel(pm_env, kphio=1 / 8)
-    standard_pmod.estimate_productivity(fapar=fapar_data[lidx], ppfd=ppfd_data[lidx])
+    standard_pmod.estimate_productivity(
+        fapar=fapar_data.data[lidx], ppfd=ppfd_data.data[lidx]
+    )
 
     # Print out a summary for the standard model
     standard_pmod.summarize()
@@ -309,8 +318,8 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     subdaily_pmod = FastSlowPModel(
         env=pm_env,
         fs_scaler=fsscaler,
-        fapar=fapar_data[lidx],
-        ppfd=ppfd_data[lidx],
+        fapar=fapar_data.data[lidx],
+        ppfd=ppfd_data.data[lidx],
         alpha=1 / 15,
         kphio=1 / 8,
     )
