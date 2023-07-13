@@ -20,7 +20,7 @@ def plot_gpp_time_series(file: Path, lat_idx: int, lon_idx: int, outfile: Path):
     # Get the time data
     datetimes = data["time"]
 
-    with PdfPages("multipage_pdf.pdf") as pdf:
+    with PdfPages(outfile) as pdf:
         for year in np.unique(datetimes.dt.year):
             fig, axes = plt.subplots(
                 ncols=1,
@@ -38,8 +38,8 @@ def plot_gpp_time_series(file: Path, lat_idx: int, lon_idx: int, outfile: Path):
                 )
 
                 this_ax = axes[month_idx]
-                this_ax.plot(datetimes.dt.day[to_plot], standard_gpp[to_plot])
-                this_ax.plot(datetimes.dt.day[to_plot], subdaily_gpp[to_plot])
+                this_ax.plot(datetimes[to_plot], standard_gpp[to_plot])
+                this_ax.plot(datetimes[to_plot], subdaily_gpp[to_plot])
                 this_ax.text(
                     0.95, 0.95, month_idx + 1, transform=this_ax.transAxes, va="top"
                 )
