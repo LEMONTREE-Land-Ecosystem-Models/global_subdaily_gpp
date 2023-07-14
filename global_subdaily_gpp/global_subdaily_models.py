@@ -176,6 +176,13 @@ ppfd_data = swdown_source["SWdown"][idx_obj].compute() * 2.04
 fapar_files = list(fapar_path.rglob("*.nc"))
 fapar_source = xarray.open_mfdataset(fapar_files, chunks=chunks)
 
+# ---------------------------------
+# DATA BUG
+# - something about cdo remapcon mucks about with the longitudinal coordinates and the
+#   resulting files are have lon coords in 0.0 - 359.5
+# ---------------------------------
+fapar_source = fapar_source.assign_coords({"lon": np.arange(-179.75, 180, 0.5)})
+
 # Forward fill FAPAR to hourly sampling
 fapar_hourly = fapar_source["FPAR"].resample(time="1h").ffill()
 
