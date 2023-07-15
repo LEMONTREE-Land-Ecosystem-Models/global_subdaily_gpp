@@ -29,7 +29,7 @@ script_start = time.time()
 # WFDE5 provides TEMP, PATM, VPD, PPFD
 wfde_path = Path("/rds/general/project/lemontree/live/source/wfde5/wfde5_v2")
 # SNU FAPAR downsampled from 0.05° to 0.5° gives FAPAR
-fapar_path = Path("/rds/general/project/lemontree/live/derived/SNU_Ryu/FPAR2_05d")
+fapar_path = Path("/rds/general/project/lemontree/live/derived/SNU_Ryu/FPAR_05d")
 # NOAA global sea level time series provides CO2
 co2_path = Path("/rds/general/project/lemontree/live/source/NOAA_CO2/co2_mm_gl.csv")
 # Output directory
@@ -176,13 +176,6 @@ ppfd_data = swdown_source["SWdown"][idx_obj].compute() * 2.04
 fapar_files = list(fapar_path.rglob("*.nc"))
 fapar_source = xarray.open_mfdataset(fapar_files, chunks=chunks)
 
-# ---------------------------------
-# DATA BUG
-# - something about cdo remapcon mucks about with the longitudinal coordinates and the
-#   resulting files are have lon coords in 0.0 - 359.5
-# ---------------------------------
-fapar_source = fapar_source.assign_coords({"lon": np.arange(-179.75, 180, 0.5)})
-
 # Forward fill FAPAR to hourly sampling
 fapar_hourly = fapar_source["FPAR"].resample(time="1h").ffill()
 
@@ -278,7 +271,7 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     # Indexer for the longitudinal band
     lidx = (
         slice(temp_data.sizes["time"]),
-        slice(asurf_data.sizes["lat"]),
+        slice(temp_data.sizes["lat"]),
         slice(data_idx, data_idx + 1),
     )
 
