@@ -17,8 +17,11 @@ def plot_gpp_time_series(file: Path, lat_idx: int, lon_idx: int, outfile: Path):
     standard_gpp = data["standard_gpp"][:, lat_idx, lon_idx]
     subdaily_gpp = data["subdaily_gpp"][:, lat_idx, lon_idx]
 
-    # Get the time data
+    # Get the time data and hence decimal day in month for X axis
     datetimes = data["time"]
+    decimal_days = (
+        datetimes.dt.day + datetimes.dt.hour / 24 + datetimes.dt.minute / 24 * 60
+    )
 
     with PdfPages(outfile) as pdf:
         for year in np.unique(datetimes.dt.year):
@@ -38,16 +41,26 @@ def plot_gpp_time_series(file: Path, lat_idx: int, lon_idx: int, outfile: Path):
                 )
 
                 this_ax = axes[month_idx]
-                this_ax.plot(datetimes[to_plot], standard_gpp[to_plot])
-                this_ax.plot(datetimes[to_plot], subdaily_gpp[to_plot])
+                this_ax.plot(
+                    decimal_days[to_plot],
+                    standard_gpp[to_plot],
+                    label="Standard P Model",
+                )
+                this_ax.plot(
+                    decimal_days[to_plot],
+                    subdaily_gpp[to_plot],
+                    label="Subdaily P Model",
+                )
                 this_ax.text(
                     0.95, 0.95, month_idx + 1, transform=this_ax.transAxes, va="top"
                 )
+                if month_idx == 0:
+                    this_ax.legend()
 
             # Add a titles and axis labels, save figure and close page.
             # fig.tight_layout()
-            fig.supylabel("Day of month")
-            fig.supxlabel("GPP")
+            fig.supxlabel("Decimal day of month")
+            fig.supylabel("GPP")
             fig.suptitle(year)
             pdf.savefig()
             plt.close(fig)
