@@ -232,28 +232,22 @@ if os.environ.get("WRITE_PMODEL_INPUTS"):
 # time for calculating subdaily representative times
 
 utc_times = temp_data.time.values
-lon_bands = np.arange(lon_idx, lon_idx + stripe_width)
-
 
 results = []
 
-for data_idx, this_lon_idx in enumerate(lon_bands):
-    # Indexer for the longitudinal band
-    lidx = (
-        slice(temp_data.sizes["time"]),
-        slice(temp_data.sizes["lat"]),
-        slice(data_idx, data_idx + 1),
-    )
+for this_lon in lon_vals:
+    # Get an indexing dictionary for the longitudinal band
+    lon_sel = {"lon": this_lon}
 
     # Xarray coordinates for the band
-    band_coords = temp_data[lidx].coords
+    band_coords = temp_data.sel(lon_sel).coords
 
     # Get the P Model environment
     pm_env = PModelEnvironment(
-        tc=temp_data.data[lidx],
-        patm=patm_data.data[lidx],
-        vpd=vpd_data.data[lidx],
-        co2=co2_data.data[lidx],
+        tc=temp_data.data.sel(lon_sel),
+        patm=patm_data.data.sel(lon_sel),
+        vpd=vpd_data.data.sel(lon_sel),
+        co2=co2_data.data.sel(lon_sel),
     )
 
     # Print out a data summary for the photosynthetic environment
@@ -262,7 +256,8 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     # Fit the standard P Model
     standard_pmod = PModel(pm_env, kphio=1 / 8)
     standard_pmod.estimate_productivity(
-        fapar=fapar_data.data[lidx], ppfd=ppfd_data.data[lidx]
+        fapar=fapar_data.data.sel(lon_sel),
+        ppfd=ppfd_data.data.sel(lon_sel),
     )
 
     # Print out a summary for the standard model
@@ -272,7 +267,7 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     # each of width is 2 minutes wide (24 / (720) * 60 = 2.0). So, find the local time
     # for the left hand edge using this_lon_idx and add 1 minute to get the band centre.
 
-    local_time_delta = (24 * (this_lon_idx / 720) - 12) * 60 + 1
+    local_time_delta = ((this_lon / 180) * 12) * 60
     local_time_delta = np.timedelta64(int(local_time_delta), "m")
     local_time = utc_times + local_time_delta
 
@@ -288,8 +283,8 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     subdaily_pmod = FastSlowPModel(
         env=pm_env,
         fs_scaler=fsscaler,
-        fapar=fapar_data.data[lidx],
-        ppfd=ppfd_data.data[lidx],
+        fapar=fapar_data.data.sel(lon_sel),
+        ppfd=ppfd_data.data(lon_sel),
         alpha=1 / 15,
         kphio=1 / 8,
     )
@@ -304,7 +299,7 @@ for data_idx, this_lon_idx in enumerate(lon_bands):
     results.append(res)
 
     print(
-        f"Models fitted on lon_idx {this_lon_idx} after "
+        f"Models fitted on lon {this_lon} after "
         f"{time.time() - script_start} seconds"
     )
 
