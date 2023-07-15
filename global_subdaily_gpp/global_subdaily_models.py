@@ -39,8 +39,8 @@ output_path = Path(
 )
 
 
-start_time = np.datetime64("2000-01-01")
-end_time = np.datetime64("2020-01-01")
+start_time = np.datetime64("2000-01-01 00:00")
+end_time = np.datetime64("2000-12-31 23:59")
 
 # ----------------------------------
 # ELEVATION DATA
@@ -52,12 +52,9 @@ asurf_data = xarray.load_dataarray(wfde_path / "Elev" / "ASurf_WFDE5_CRU_v2.0.nc
 # Use longitudinal stripes to control for timing: data is sampled at UTC, so local time
 # varies with longitude and needs to be corrected. The blocksize sets the number of
 # those vertical stripes to be loaded
-stripe_width = 1
-stripe_starts = np.arange(0, asurf_data.sizes["lon"], stripe_width)
-
-# Select the stripe start for this subjob
-array_index = os.environ["PBS_ARRAY_INDEX"]
-lon_idx = stripe_starts[int(array_index)]
+array_index = int(os.environ["PBS_ARRAY_INDEX"])
+stripe_width = int(os.environ.get("N_LON_SLICES", 1))
+lon_vals = asurf_data.lon[array_index : (array_index + stripe_width)].data
 
 # https://stackoverflow.com/questions/66789660
 
@@ -86,19 +83,16 @@ chunks = {"time": 744, "lat": 360, "lon": stripe_width}
 temp_files = list((wfde_path / "Tair").rglob("*.nc"))
 temp_source = xarray.open_mfdataset(temp_files, chunks=chunks)
 
-# Create an indexing object as a tuple of slices that can be reused to get the variable
-# subsets. Note that WFDE5 ends in 2019, hence the None.
-idx_obj = (
-    slice(
-        np.where(temp_source.time.values == start_time)[0][0],
-        None,
-    ),
-    slice(asurf_data.sizes["lat"]),
-    slice(lon_idx, lon_idx + stripe_width),
-)
+# Create an indexing dictionary to subset the time and longitude axes of the WFDE
+# datasets - note the use of a list in 'lon' to _retain_ that as a singleton axis.
+wfde_slices = {
+    "time": slice(start_time, end_time),
+    "lon": lon_vals,
+}
+
 
 # Extract temperature data and convert to °C
-temp_data = temp_source["Tair"][idx_obj].compute() - 273.15
+temp_data = temp_source["Tair"].sel(wfde_slices).compute() - 273.15
 
 # Remove very cold cells
 temp_data = temp_data.where(temp_data >= -25.0, np.nan)
@@ -113,8 +107,8 @@ use_constant_patm = True
 if use_constant_patm:
     # Use elevation derived atmospheric pressure
     # - Reduce to longitudinal slice and get patm
-    elev_slice = asurf_data.data[tuple(list(idx_obj[1:]))]
-    patm_slice = calc_patm(elev_slice)
+    elev_slice = asurf_data.sel({"lon": lon_vals})
+    patm_slice = calc_patm(elev_slice.data)
     # - broadcast to shape of time series
     patm_data = xarray.DataArray(
         np.broadcast_to(patm_slice, temp_data.shape), coords=temp_data.coords
@@ -125,7 +119,7 @@ else:
     patm_source = xarray.open_mfdataset(patm_files, chunks=chunks)
 
     # Extract atmospheric pressure in Pa
-    patm_data = patm_source["PSurf"][idx_obj].compute()
+    patm_data = patm_source["PSurf"].sel(wfde_slices).compute()
 
 # ----------------------------------
 # VPD DATA
@@ -136,7 +130,7 @@ qair_files = list((wfde_path / "Qair").rglob("*.nc"))
 qair_source = xarray.open_mfdataset(qair_files, chunks=chunks)
 
 # Extract specific humidity and convert to VPD: kg kg-1 to Pa.
-qair_data = qair_source["Qair"][idx_obj].compute().data
+qair_data = qair_source["Qair"].sel(wfde_slices).compute().data
 # Function takes pressure in kPa and returns kPa
 vpd_data = convert_sh_to_vpd(sh=qair_data, ta=temp_data, patm=patm_data / 1000) * 1000
 
@@ -154,19 +148,9 @@ vpd_data = xarray.DataArray(vpd_data, coords=temp_data.coords)
 swdown_files = list((wfde_path / "SWdown").rglob("*.nc"))
 swdown_source = xarray.open_mfdataset(swdown_files, chunks=chunks)
 
-# SWDown has a different start datetime to other WFDE5 variables, so needs different
-# indexing
-idx_obj = (
-    slice(
-        np.where(swdown_source.time.values == start_time)[0][0],
-        None,
-    ),
-    slice(asurf_data.sizes["lat"]),
-    slice(lon_idx, lon_idx + stripe_width),
-)
 
 # Extract shortwave downwelling radiation and convert to PPFD
-ppfd_data = swdown_source["SWdown"][idx_obj].compute() * 2.04
+ppfd_data = swdown_source["SWdown"].sel(wfde_slices).compute() * 2.04
 
 # ----------------------------------
 # FAPAR DATA
@@ -179,18 +163,9 @@ fapar_source = xarray.open_mfdataset(fapar_files, chunks=chunks)
 # Forward fill FAPAR to hourly sampling
 fapar_hourly = fapar_source["FPAR"].resample(time="1h").ffill()
 
-# Get the indices on the hourly resample
-idx_obj_fapar = (
-    slice(
-        np.where(fapar_hourly.time.values == start_time)[0][0],
-        np.where(fapar_hourly.time.values == end_time)[0][0],
-    ),
-    slice(asurf_data.sizes["lat"]),
-    slice(lon_idx, lon_idx + stripe_width),
-)
-
 # Extract the data
-fapar_data = fapar_hourly[idx_obj_fapar].compute()
+fapar_hourly = fapar_hourly.rename({"longitude": "lon", "latitude": "lat"})
+fapar_data = fapar_hourly.sel(wfde_slices).compute()
 
 # ----------------------------------
 # CO2 DATA
@@ -217,12 +192,7 @@ hourly_co2 = (
 )
 
 # Slice to the start time and endtime
-hourly_co2 = hourly_co2[
-    slice(
-        np.where(hourly_co2.time.values == start_time)[0][0],
-        np.where(hourly_co2.time.values == end_time)[0][0],
-    )
-]
+hourly_co2 = hourly_co2.sel({"time": slice(start_time, end_time)})
 
 # Broadcast the data to the correct shape and convert to xarray
 co2_data = np.broadcast_to(hourly_co2.data[:, np.newaxis, np.newaxis], temp_data.shape)
@@ -232,7 +202,7 @@ co2_data = xarray.DataArray(co2_data, coords=temp_data.coords)
 print(
     f"""
 Data loading finished after {time.time() - script_start} seconds:
-- lon_idx = {lon_idx}
+- lon_idx = {lon_vals}
 - temp_data.shape = {temp_data.shape}
 - patm_data.shape = {patm_data.shape}
 - vpd_data.shape = {vpd_data.shape}
