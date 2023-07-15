@@ -244,10 +244,10 @@ for this_lon in lon_vals:
 
     # Get the P Model environment
     pm_env = PModelEnvironment(
-        tc=temp_data.data.sel(lon_sel),
-        patm=patm_data.data.sel(lon_sel),
-        vpd=vpd_data.data.sel(lon_sel),
-        co2=co2_data.data.sel(lon_sel),
+        tc=temp_data.sel(lon_sel).data,
+        patm=patm_data.sel(lon_sel).data,
+        vpd=vpd_data.sel(lon_sel).data,
+        co2=co2_data.sel(lon_sel).data,
     )
 
     # Print out a data summary for the photosynthetic environment
@@ -256,8 +256,8 @@ for this_lon in lon_vals:
     # Fit the standard P Model
     standard_pmod = PModel(pm_env, kphio=1 / 8)
     standard_pmod.estimate_productivity(
-        fapar=fapar_data.data.sel(lon_sel),
-        ppfd=ppfd_data.data.sel(lon_sel),
+        fapar=fapar_data.sel(lon_sel).data,
+        ppfd=ppfd_data.sel(lon_sel).data,
     )
 
     # Print out a summary for the standard model
@@ -283,8 +283,8 @@ for this_lon in lon_vals:
     subdaily_pmod = FastSlowPModel(
         env=pm_env,
         fs_scaler=fsscaler,
-        fapar=fapar_data.data.sel(lon_sel),
-        ppfd=ppfd_data.data(lon_sel),
+        fapar=fapar_data.sel(lon_sel).data,
+        ppfd=ppfd_data.sel(lon_sel).data,
         alpha=1 / 15,
         kphio=1 / 8,
     )
