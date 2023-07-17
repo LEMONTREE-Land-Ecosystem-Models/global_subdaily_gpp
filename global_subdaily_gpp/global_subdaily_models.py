@@ -52,9 +52,13 @@ asurf_data = xarray.load_dataarray(wfde_path / "Elev" / "ASurf_WFDE5_CRU_v2.0.nc
 # Use longitudinal stripes to control for timing: data is sampled at UTC, so local time
 # varies with longitude and needs to be corrected. The blocksize sets the number of
 # those vertical stripes to be loaded
-array_index = int(os.environ["PBS_ARRAY_INDEX"])
-stripe_width = int(os.environ.get("N_LON_SLICES", 1))
-lon_vals = asurf_data.lon[array_index : (array_index + stripe_width)].data
+
+# The array index gives the block number given the number of slices
+n_chunks = int(os.environ.get("N_LON_SLICES", 1))
+lon_chunks = np.split(asurf_data.lon.data, n_chunks)
+# PBS job array indices start at 1
+lon_vals = lon_chunks[int(os.environ["PBS_ARRAY_INDEX"]) - 1]
+
 
 # https://stackoverflow.com/questions/66789660
 
@@ -301,8 +305,12 @@ for this_lon in lon_vals:
     # Format and store the GPP data
     res = xarray.Dataset(
         {
-            "standard_gpp": xarray.DataArray(standard_pmod.gpp, coords=band_coords),
-            "subdaily_gpp": xarray.DataArray(subdaily_pmod.gpp, coords=band_coords),
+            "standard_gpp": xarray.DataArray(
+                standard_pmod.gpp, coords=band_coords
+            ).astype(np.float32),
+            "subdaily_gpp": xarray.DataArray(
+                subdaily_pmod.gpp, coords=band_coords
+            ).astype(np.float32),
         }
     )
     results.append(res)
