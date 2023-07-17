@@ -8,7 +8,7 @@ using `pyrealm`.
 The models are fitted at a 0.5° global resolution to hourly data between 2000-01-01 and
 2019-12-31, giving total model dimensions:
 
-* 175320 hourly time points
+* 175320 hourly time points - but see local time notes below.
 * 360 latitudinal bands
 * 720 longitudinal bands
 
@@ -26,7 +26,9 @@ The models use the following data sources:
 * PPFD calculated from the hourly WFDE5 v2 `SWdown` data at 0.5° resolution.
 * FAPAR calculated from the daily SNU 0.05° fAPAR data, downsampled using `cdo remapcon`
   to the 0.5° resolution abd then filled to give identical hourly fAPAR values within
-  days.
+  days. Note that some care is need with the downsampling to match the origin and
+  orientation of the data to the WFDE5 datasets - the grid of the downsampled data needs
+  to be set to match, not just use the default from using `r360x720`.
 
 The standard and subdaily P Models are fitted to the data:
 
@@ -36,10 +38,21 @@ The standard and subdaily P Models are fitted to the data:
   1/8 and a memory effect for slow responses of $\alpha = 1/15$. The slowly responding
   parameters are set to track noon conditions.
 
+### Local times
+
 The models are divided into longitudinal bands to be run in parallel on the HPC. Because
 the input datasets use UTC times, the models are fitted to each column of longitudinal
 data independently, using the appropriate local time to correctly identify noon
 conditions within the datasets.
+
+Handling this has a couple of effects:
+
+* The local times for the study period do not cover a set of whole days, which at the
+  moment is required in the inputs for calculating realised slow responses. The datasets
+  are trimmed to 2000-01-02 and 2019-12-30 in order to get the same number of complete
+  days using the local calendar.
+
+* The timescale in the output files gives the **local time** for each cell.
 
 ## SPLASH calculations of aridity and soil moisture
 
