@@ -40,7 +40,7 @@ output_path = Path(
 
 
 start_time = np.datetime64("2000-01-01 00:00")
-end_time = np.datetime64("2000-12-31 23:59")
+end_time = np.datetime64("2019-12-31 23:59")
 
 # ----------------------------------
 # ELEVATION DATA
@@ -164,7 +164,6 @@ fapar_source = xarray.open_mfdataset(fapar_files, chunks=chunks)
 fapar_hourly = fapar_source["FPAR"].resample(time="1h").ffill()
 
 # Extract the data
-fapar_hourly = fapar_hourly.rename({"longitude": "lon", "latitude": "lat"})
 fapar_data = fapar_hourly.sel(wfde_slices).compute()
 
 # ----------------------------------
