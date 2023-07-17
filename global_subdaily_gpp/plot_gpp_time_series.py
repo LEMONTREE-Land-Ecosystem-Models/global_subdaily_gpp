@@ -14,8 +14,8 @@ def plot_gpp_time_series(file: Path, lat_idx: int, lon_idx: int, outfile: Path):
     data = xarray.open_dataset(file)
 
     # Get the time series for the specified lat and lon idx
-    standard_gpp = data["standard_gpp"][:, lat_idx, lon_idx]
-    subdaily_gpp = data["subdaily_gpp"][:, lat_idx, lon_idx]
+    standard_gpp = data["standard_gpp"].isel(lat=lat_idx, lon=lon_idx)
+    subdaily_gpp = data["subdaily_gpp"].isel(lat=lat_idx, lon=lon_idx)
 
     # Get the time data and hence decimal day in month for X axis
     datetimes = data["time"]
