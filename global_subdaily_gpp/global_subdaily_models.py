@@ -256,7 +256,7 @@ for this_lon in lon_vals:
         ),
     }
 
-    # Xarray coordinates for the band
+    # Get the realised coordinates for the data that will be selected
     band_coords = temp_data.sel(lon_sel).coords
 
     # Get the P Model environment
@@ -282,7 +282,7 @@ for this_lon in lon_vals:
 
     # Set a half hourly window around noon - with hourly data this is actually just
     # picking the noon value.
-    fsscaler = FastSlowScaler(local_time)
+    fsscaler = FastSlowScaler(band_coords["time"].values)
     fsscaler.set_window(
         window_center=np.timedelta64(12, "h"),
         half_width=np.timedelta64(1, "h"),
