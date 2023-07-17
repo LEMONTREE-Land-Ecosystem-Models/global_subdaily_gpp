@@ -57,7 +57,8 @@ asurf_data = xarray.load_dataarray(wfde_path / "Elev" / "ASurf_WFDE5_CRU_v2.0.nc
 n_chunks = int(os.environ.get("N_LON_SLICES", 1))
 lon_chunks = np.split(asurf_data.lon.data, n_chunks)
 # PBS job array indices start at 1
-lon_vals = lon_chunks[int(os.environ["PBS_ARRAY_INDEX"]) - 1]
+array_index = int(os.environ["PBS_ARRAY_INDEX"])
+lon_vals = lon_chunks[array_index - 1]
 
 
 # https://stackoverflow.com/questions/66789660
@@ -73,7 +74,7 @@ lon_vals = lon_chunks[int(os.environ["PBS_ARRAY_INDEX"]) - 1]
 # One longitudinal slice is (259400 * 360 * 1 * 4) / 1024 **2 ~ 356 Mb of float32 data
 # and a rought test on the login node shows one slice taking about 9 minutes to load.
 
-chunks = {"time": 744, "lat": 360, "lon": stripe_width}
+chunks = {"time": 744, "lat": 360, "lon": 1}
 
 # Read in the P Model time series variables
 # - in each case, _open_ the dataset as an xarray MFDataset and then compute the subset
