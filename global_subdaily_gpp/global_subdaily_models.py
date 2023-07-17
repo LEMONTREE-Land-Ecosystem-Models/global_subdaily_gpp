@@ -235,8 +235,26 @@ utc_times = temp_data.time.values
 results = []
 
 for this_lon in lon_vals:
-    # Get an indexing dictionary for the longitudinal band
-    lon_sel = {"lon": this_lon}
+    # Set up the local times - the lon idx in 0-719 defines 0.5° longitudinal bands,
+    # each of width is 2 minutes wide (24 / (720) * 60 = 2.0). So, find the local time
+    # for the left hand edge using this_lon_idx and add 1 minute to get the band centre.
+    local_time_delta = ((this_lon / 180) * 12) * 60 + 1
+    local_time_delta = np.timedelta64(int(local_time_delta), "m")
+    local_time = utc_times + local_time_delta
+
+    # Moving to local times shifts the datetimes from complete days to partial days,
+    # which are not currently supported by the FastSlowScaler. So need to reduce the
+    # analysis to complete days by trimming a day from each end to remove partials.
+
+    # NOTE that this forces the outputs to use _LOCAL_ time.
+
+    # Get an indexing dictionary for the longitudinal band and time.
+    lon_sel = {
+        "lon": [this_lon],
+        "time": slice(
+            start_time + np.timedelta64(1, "D"), end_time - np.timedelta64(1, "D")
+        ),
+    }
 
     # Xarray coordinates for the band
     band_coords = temp_data.sel(lon_sel).coords
@@ -261,14 +279,6 @@ for this_lon in lon_vals:
 
     # Print out a summary for the standard model
     standard_pmod.summarize()
-
-    # Set up the local times - the lon idx in 0-719 defines 0.5° longitudinal bands,
-    # each of width is 2 minutes wide (24 / (720) * 60 = 2.0). So, find the local time
-    # for the left hand edge using this_lon_idx and add 1 minute to get the band centre.
-
-    local_time_delta = ((this_lon / 180) * 12) * 60
-    local_time_delta = np.timedelta64(int(local_time_delta), "m")
-    local_time = utc_times + local_time_delta
 
     # Set a half hourly window around noon - with hourly data this is actually just
     # picking the noon value.
