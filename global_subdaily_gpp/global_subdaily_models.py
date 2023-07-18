@@ -303,6 +303,11 @@ for this_lon in lon_vals:
         kphio=1 / 8,
     )
 
+    print(
+        f"Models fitted on lon {this_lon} after "
+        f"{time.time() - script_start} seconds"
+    )
+
     # Format and store the GPP data
     res = xarray.Dataset(
         {
@@ -317,7 +322,7 @@ for this_lon in lon_vals:
     results.append(res)
 
     print(
-        f"Models fitted on lon {this_lon} after "
+        f"Data added to results on lon {this_lon} after "
         f"{time.time() - script_start} seconds"
     )
 
@@ -325,4 +330,4 @@ for this_lon in lon_vals:
 out_data = xarray.concat(results, dim="lon")
 out_data.to_netcdf(output_path / f"gpp_data_{array_index}.nc")
 
-print(f"Script completed after {time.time() - script_start} seconds")
+print(f"Data saved and script completed after {time.time() - script_start} seconds")
