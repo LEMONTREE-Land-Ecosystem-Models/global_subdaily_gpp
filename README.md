@@ -54,6 +54,22 @@ Handling this has a couple of effects:
 
 * The timescale in the output files gives the **local time** for each cell.
 
+### Validation
+
+The following commands are used to run the global models for the individual longitudinal
+bands containing test data for 7 sites. The odd job array specification is simply being
+used to submit an array job with only one subjob to target these test sites.
+
+``` sh
+qsub -J 163-164:2 -v WRITE_PMODEL_INPUTS=TRUE,N_LON_SLICES=720 global_subdaily_models.pbs.sh
+qsub -J 190-191:2 -v WRITE_PMODEL_INPUTS=TRUE,N_LON_SLICES=720 global_subdaily_models.pbs.sh
+qsub -J 641-642:2 -v WRITE_PMODEL_INPUTS=TRUE,N_LON_SLICES=720 global_subdaily_models.pbs.sh
+qsub -J 371-372:2 -v WRITE_PMODEL_INPUTS=TRUE,N_LON_SLICES=720 global_subdaily_models.pbs.sh
+qsub -J 181-182:2 -v WRITE_PMODEL_INPUTS=TRUE,N_LON_SLICES=720 global_subdaily_models.pbs.sh
+qsub -J 187-188:2 -v WRITE_PMODEL_INPUTS=TRUE,N_LON_SLICES=720 global_subdaily_models.pbs.sh
+qsub -J 408-409:2 -v WRITE_PMODEL_INPUTS=TRUE,N_LON_SLICES=720 global_subdaily_models.pbs.sh
+```
+
 ## SPLASH calculations of aridity and soil moisture
 
 The Python code version of the SPLASH v1.0 release is used to calculate daily soil

@@ -221,6 +221,24 @@ Data loading finished after {time.time() - script_start} seconds:
 """
 )
 
+# ----------------------------------
+# FORWARD FILL MISSING DATA
+# ----------------------------------
+
+temp_data = temp_data.ffill(dim="time")
+patm_data = patm_data.ffill(dim="time")
+vpd_data = vpd_data.ffill(dim="time")
+co2_data = co2_data.ffill(dim="time")
+fapar_data = fapar_data.ffill(dim="time")
+ppfd_data = ppfd_data.ffill(dim="time")
+
+
+print(f"Data gaps filled after {time.time() - script_start} seconds")
+
+# ----------------------------------
+# SAVE MODEL INPUTS IF REQUESTED
+# ----------------------------------
+
 if os.environ.get("WRITE_PMODEL_INPUTS"):
     out = xarray.Dataset(
         {
@@ -233,6 +251,7 @@ if os.environ.get("WRITE_PMODEL_INPUTS"):
         }
     ).to_netcdf(output_path / f"inputs_data_{array_index}.nc")
 
+    print(f"Input data saved after {time.time() - script_start} seconds")
 # ----------------------------------
 # MODEL FITTING
 # ----------------------------------

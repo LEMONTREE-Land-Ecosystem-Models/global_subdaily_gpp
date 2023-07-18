@@ -1,4 +1,5 @@
 from pathlib import Path
+from itertools import product
 
 import xarray
 from matplotlib.backends.backend_pdf import PdfPages
@@ -39,7 +40,7 @@ for sitename, fpath in giulia_sites.items():
     local_decimal_day_in_month = (
         local_datetime.dt.day
         + local_datetime.dt.hour / 24
-        + local_datetime.dt.minute / 24 * 60
+        + local_datetime.dt.minute / (24 * 60)
     )
 
     # Get site info
@@ -52,11 +53,16 @@ for sitename, fpath in giulia_sites.items():
         np.diff(local_datetime[0:2]).astype("timedelta64[m]"),
     )
 
-    # Open the provided results file and subset to the time series and cell required
-    global_data = xarray.open_dataset(
-        f"../results/gpp_data_{int(site_info.lon_idx.values)}.nc"
-    )
+    # Open the provided results file if found
+    global_path = Path(f"../results/gpp_data_{int(site_info.lon_idx)}.nc")
 
+    if not global_path.exists():
+        print("Missing global results. Skipping.")
+        continue
+
+    global_data = xarray.open_dataset(global_path)
+
+    # Subset to the time series and cell required
     global_subset = global_data.sel(
         time=slice(local_datetime.min().to_numpy(), local_datetime.max().to_numpy()),
         lat=site_info.lat_band,
@@ -68,58 +74,93 @@ for sitename, fpath in giulia_sites.items():
     global_decimal_day_in_month = (
         global_datetime.dt.day
         + global_datetime.dt.hour / 24
-        + global_datetime.dt.minute / 24 * 60
+        + global_datetime.dt.minute / (24 * 60)
     )
 
-    for year in np.unique(local_datetime.dt.year):
+    # Plot in pairs of local over global to make it easier to compare data.
+    month_blocks = np.split(np.arange(1, 13), 4)
+    all_years = np.unique(local_datetime.dt.year)
+    month_names = [
+        d.item().strftime("%b")
+        for d in np.arange(
+            np.datetime64("2000-01"), np.datetime64("2001-01"), np.timedelta64(1, "M")
+        )
+    ]
+
+    for year, months in product(all_years, month_blocks):
         fig, axes = plt.subplots(
             ncols=1,
-            nrows=12,
+            nrows=2 * len(months),
             sharex=True,
             sharey=True,
             figsize=(8.27, 11.69),
             layout="constrained",
         )
 
-        for month_idx in np.arange(12):
-            # Get indices of data to plot - month within year - for both local and
-            # global time series.
+        for month_idx, this_month in enumerate(months):
+            # Plot the predictions
+            print(month_idx, this_month, 2 * month_idx, 2 * month_idx + 1)
+            local_ax = axes[2 * month_idx]
+            global_ax = axes[2 * month_idx + 1]
+
+            # Get indices of data to plot from local data - month within year
             local_to_plot = (local_datetime.dt.year == year) & (
-                local_datetime.dt.month == (month_idx + 1)
+                local_datetime.dt.month == (this_month)
+            ).values
+
+            # Plot site based local predictions on local axis
+            local_ax.plot(
+                local_decimal_day_in_month[local_to_plot],
+                local_data["GPPp"][local_to_plot] * 12.011,
+                label="Standard P Model",
+                color="grey",
             )
-            global_to_plot = (global_datetime.dt.year == year) & (
-                global_datetime.dt.month == (month_idx + 1)
+            local_ax.plot(
+                local_decimal_day_in_month[local_to_plot],
+                local_data["GPPpOpt"][local_to_plot] * 12.011,
+                label="Subdaily P Model",
+                color="red",
             )
 
-            # Plot the predictions
-            this_ax = axes[month_idx]
-            this_ax.plot(
-                local_decimal_day_in_month[local_to_plot],
-                local_data["GPPp"][local_to_plot],
-                label="Standard P Model - site",
+            # Add a plot label
+            local_ax.text(
+                0.95,
+                0.95,
+                f"{month_names[this_month - 1]}: Local",
+                transform=local_ax.transAxes,
+                va="top",
+                ha="right",
             )
-            this_ax.plot(
-                local_decimal_day_in_month[local_to_plot],
-                local_data["GPPpOpt"][local_to_plot],
-                label="Standard P Model - site",
-            )
-            this_ax.plot(
+
+            # Get indices of data to plot from global data
+            global_to_plot = (global_datetime.dt.year == year) & (
+                global_datetime.dt.month == (this_month)
+            ).data
+
+            # Plot global predictions on global axis.
+            global_ax.plot(
                 global_decimal_day_in_month[global_to_plot],
                 global_subset["standard_gpp"][global_to_plot],
-                label="Standard P Model - site",
+                label="Standard P Model",
             )
-            this_ax.plot(
+            global_ax.plot(
                 global_decimal_day_in_month[global_to_plot],
                 global_subset["subdaily_gpp"][global_to_plot],
-                label="Standard P Model - site",
+                label="Standard P Model",
             )
 
-            # Add a month number and legend
-            this_ax.text(
-                0.95, 0.95, month_idx + 1, transform=this_ax.transAxes, va="top"
+            # Add a plot label
+            global_ax.text(
+                0.95,
+                0.95,
+                f"{month_names[this_month - 1]}: Global",
+                transform=global_ax.transAxes,
+                va="top",
+                ha="right",
             )
-            if month_idx == 0:
-                this_ax.legend()
+
+            # if month_idx == 0:
+            #     local_ax.legend()
 
         # Add a titles and axis labels, save figure and close page.
         # fig.tight_layout()
