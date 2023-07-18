@@ -5,7 +5,8 @@ cells from WFDE5 data in order to fit the subdaily P Model at global scale and 0
 resolution.
 
 The PBS_ARRAY_INDEX environment variable changes within each subjob and is used to
-control which longitudinal slice is analysed by each subjob.
+control which longitudinal slice is analysed by each subjob. Note that the indexing
+uses 0-719.
 """
 
 import os
@@ -49,17 +50,21 @@ end_time = np.datetime64("2019-12-31 23:59")
 # Read in the elevation data
 asurf_data = xarray.load_dataarray(wfde_path / "Elev" / "ASurf_WFDE5_CRU_v2.0.nc")
 
+# ----------------------------------
+# IDENTIFY LONGITUDINAL BLOCK
+# ----------------------------------
+
 # Use longitudinal stripes to control for timing: data is sampled at UTC, so local time
 # varies with longitude and needs to be corrected. The blocksize sets the number of
 # those vertical stripes to be loaded
 
-# The array index gives the block number given the number of slices
-n_chunks = int(os.environ.get("N_LON_SLICES", 1))
+# The array index gives the chunk number given the number of chunks, defaulting to a
+# single longitudinal band per chunk
+n_chunks = int(os.environ.get("N_LON_SLICES", 720))
 lon_chunks = np.split(asurf_data.lon.data, n_chunks)
 # PBS job array indices start at 1
 array_index = int(os.environ["PBS_ARRAY_INDEX"])
-lon_vals = lon_chunks[array_index - 1]
-
+lon_vals = lon_chunks[array_index]
 
 # https://stackoverflow.com/questions/66789660
 
