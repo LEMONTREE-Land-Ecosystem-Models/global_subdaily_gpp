@@ -222,34 +222,30 @@ Data loading finished after {time.time() - script_start} seconds:
 )
 
 # ----------------------------------
-# FORWARD FILL MISSING DATA
+# COMPILE INTO A SINGLE DATASET AND FORWARD FILL MISSING DATA
 # ----------------------------------
 
-temp_data = temp_data.ffill(dim="time")
-patm_data = patm_data.ffill(dim="time")
-vpd_data = vpd_data.ffill(dim="time")
-co2_data = co2_data.ffill(dim="time")
-fapar_data = fapar_data.ffill(dim="time")
-ppfd_data = ppfd_data.ffill(dim="time")
+model_inputs = xarray.Dataset(
+    {
+        "temp": temp_data,
+        "patm": patm_data,
+        "vpd": vpd_data,
+        "co2": co2_data,
+        "fapar": fapar_data,
+        "ppfd": ppfd_data,
+    }
+)
 
+model_inputs = model_inputs.ffill(dim="time")
 
-print(f"Data gaps filled after {time.time() - script_start} seconds")
+print(f"Dataset built and gaps filled after {time.time() - script_start} seconds")
 
 # ----------------------------------
 # SAVE MODEL INPUTS IF REQUESTED
 # ----------------------------------
 
 if os.environ.get("WRITE_PMODEL_INPUTS"):
-    out = xarray.Dataset(
-        {
-            "temp": temp_data,
-            "patm": patm_data,
-            "vpd": vpd_data,
-            "co2": co2_data,
-            "fapar": fapar_data,
-            "ppfd": ppfd_data,
-        }
-    ).to_netcdf(output_path / f"inputs_data_{array_index}.nc")
+    out = model_inputs.to_netcdf(output_path / f"inputs_data_{array_index}.nc")
 
     print(f"Input data saved after {time.time() - script_start} seconds")
 # ----------------------------------
@@ -259,41 +255,38 @@ if os.environ.get("WRITE_PMODEL_INPUTS"):
 # Loop over the loaded longitudinal bands, correcting the datetimes from UTC to local
 # time for calculating subdaily representative times
 
-utc_times = temp_data.time.values
-
 results = []
 
 for this_lon in lon_vals:
+    # Get the data for this slice - retaining the dimension by passing as list
+    this_lon_inputs = model_inputs.sel(lon=[this_lon])
+
     # Set up the local times - the lon idx in 0-719 defines 0.5° longitudinal bands,
     # each of width is 2 minutes wide (24 / (720) * 60 = 2.0). So, find the local time
     # for the left hand edge using this_lon_idx and add 1 minute to get the band centre.
     local_time_delta = ((this_lon / 180) * 12) * 60 + 1
-    local_time_delta = np.timedelta64(int(local_time_delta), "m")
-    local_time = utc_times + local_time_delta
+    local_time_delta = np.timedelta64(round(local_time_delta), "m")
+    local_time = this_lon_inputs.time + local_time_delta
+
+    # Assign the correct local time coordinates for this longitude slice
+    this_lon_inputs = this_lon_inputs.assign_coords(time=local_time)
 
     # Moving to local times shifts the datetimes from complete days to partial days,
     # which are not currently supported by the FastSlowScaler. So need to reduce the
     # analysis to complete days by trimming a day from each end to remove partials.
-
-    # NOTE that this forces the outputs to use _LOCAL_ time.
-
-    # Get an indexing dictionary for the longitudinal band and time.
-    lon_sel = {
-        "lon": [this_lon],
-        "time": slice(
-            start_time + np.timedelta64(1, "D"), end_time - np.timedelta64(1, "D")
-        ),
-    }
-
-    # Get the realised coordinates for the data that will be selected
-    band_coords = temp_data.sel(lon_sel).coords
+    this_lon_inputs = this_lon_inputs.sel(
+        time=slice(
+            start_time + np.timedelta64(1, "D"),
+            end_time - np.timedelta64(1, "D"),
+        )
+    )
 
     # Get the P Model environment
     pm_env = PModelEnvironment(
-        tc=temp_data.sel(lon_sel).data,
-        patm=patm_data.sel(lon_sel).data,
-        vpd=vpd_data.sel(lon_sel).data,
-        co2=co2_data.sel(lon_sel).data,
+        tc=this_lon_inputs["temp"].data,
+        patm=this_lon_inputs["patm"].data,
+        vpd=this_lon_inputs["vpd"].data,
+        co2=this_lon_inputs["co2"].data,
     )
 
     # Print out a data summary for the photosynthetic environment
@@ -302,8 +295,8 @@ for this_lon in lon_vals:
     # Fit the standard P Model
     standard_pmod = PModel(pm_env, kphio=1 / 8)
     standard_pmod.estimate_productivity(
-        fapar=fapar_data.sel(lon_sel).data,
-        ppfd=ppfd_data.sel(lon_sel).data,
+        fapar=this_lon_inputs["fapar"].data,
+        ppfd=this_lon_inputs["ppfd"].data,
     )
 
     # Print out a summary for the standard model
@@ -311,7 +304,7 @@ for this_lon in lon_vals:
 
     # Set a half hourly window around noon - with hourly data this is actually just
     # picking the noon value.
-    fsscaler = FastSlowScaler(band_coords["time"].values)
+    fsscaler = FastSlowScaler(this_lon_inputs.time.data)
     fsscaler.set_window(
         window_center=np.timedelta64(12, "h"),
         half_width=np.timedelta64(1, "h"),
@@ -321,8 +314,8 @@ for this_lon in lon_vals:
     subdaily_pmod = FastSlowPModel(
         env=pm_env,
         fs_scaler=fsscaler,
-        fapar=fapar_data.sel(lon_sel).data,
-        ppfd=ppfd_data.sel(lon_sel).data,
+        fapar=this_lon_inputs["fapar"].data,
+        ppfd=this_lon_inputs["ppfd"].data,
         alpha=1 / 15,
         kphio=1 / 8,
     )
@@ -336,10 +329,10 @@ for this_lon in lon_vals:
     res = xarray.Dataset(
         {
             "standard_gpp": xarray.DataArray(
-                standard_pmod.gpp, coords=band_coords
+                standard_pmod.gpp, coords=this_lon_inputs.coords
             ).astype(np.float32),
             "subdaily_gpp": xarray.DataArray(
-                subdaily_pmod.gpp, coords=band_coords
+                subdaily_pmod.gpp, coords=this_lon_inputs.coords
             ).astype(np.float32),
         }
     )
