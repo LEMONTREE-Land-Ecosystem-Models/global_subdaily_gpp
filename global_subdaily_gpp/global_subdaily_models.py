@@ -329,10 +329,14 @@ for this_lon in lon_vals:
     res = xarray.Dataset(
         {
             "standard_gpp": xarray.DataArray(
-                standard_pmod.gpp, coords=this_lon_inputs.coords
+                standard_pmod.gpp,
+                dims=["time", "lat", "lon"],
+                coords=this_lon_inputs.coords,
             ).astype(np.float32),
             "subdaily_gpp": xarray.DataArray(
-                subdaily_pmod.gpp, coords=this_lon_inputs.coords
+                subdaily_pmod.gpp,
+                dims=["time", "lat", "lon"],
+                coords=this_lon_inputs.coords,
             ).astype(np.float32),
         }
     )
