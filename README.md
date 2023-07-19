@@ -30,6 +30,9 @@ The models use the following data sources:
   orientation of the data to the WFDE5 datasets - the grid of the downsampled data needs
   to be set to match, not just use the default from using `r360x720`.
 
+Gaps in the data inputs are filled by simple forward filling of values along the time
+dimension.
+
 The standard and subdaily P Models are fitted to the data:
 
 * Standard P Model (instantaneous acclimation) using `kphio` of 1/8 and the standard C3
