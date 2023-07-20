@@ -1,7 +1,7 @@
 #! /bin/bash
 
 #PBS -l walltime=24:00:00
-#PBS -l select=1:ncpus=1:mem=40gb
+#PBS -l select=1:ncpus=1:mem=80gb
 #PBS -j oe
 
 BASEPATH="/rds/general/project/lab-prentice-realm-data/live/global_subdaily_models/"
