@@ -54,7 +54,7 @@ def compile_aridity_and_soil_moisture(basename: Path):
     annual_AI_sum_meth = (
         data["pet"].groupby("time.year").sum() / data["pre"].groupby("time.year").sum()
     )
-    clim_AI_sum_meth = clim_AI_sum_meth.where(clim_AI_sum_meth < np.inf, np.nan)
+    annual_AI_sum_meth = annual_AI_sum_meth.where(annual_AI_sum_meth < np.inf, np.nan)
 
     # 20 year climatological
     clim_AI_sum_meth = data["pet"].sum(dim="time") / data["pre"].sum(dim="time")
@@ -73,7 +73,7 @@ def compile_aridity_and_soil_moisture(basename: Path):
 
     # Calculate soil moisture stress - broadcast ai data to same shape as wn
     # and calculate the relative soil moisture using the SPLASH fixed bucket size.
-    ai = (clim_AI_sum_meth.broadcast_like(data["wn"]).compute().data,)
+    ai = clim_AI_sum_meth.broadcast_like(data["wn"]).compute().data
     soilm = data["wn"].compute()
     relative_soilm = soilm.data / 150
     soilmstress_mengoli = calc_soilmstress_mengoli(
@@ -88,8 +88,9 @@ def compile_aridity_and_soil_moisture(basename: Path):
             ),
         }
     )
+
     # Export soil moisture data by year
-    years, datasets = zip(*data["wn"].groupby("time.year"))
+    years, datasets = zip(*soilm_data.groupby("time.year"))
     paths = [Path("soil_moisture_grids") / f"soil_moisture_{y}.nc" for y in years]
     xarray.save_mfdataset(datasets, paths)
 
