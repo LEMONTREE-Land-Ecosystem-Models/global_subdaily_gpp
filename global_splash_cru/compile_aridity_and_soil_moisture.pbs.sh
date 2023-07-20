@@ -11,7 +11,7 @@ module load anaconda3/personal
 source activate python3.10
 
 # Run the executable
-python3 $BASEPATH/global_splash_cru/extract_aridity_and_soil_moisture.py \
+python3 $BASEPATH/global_splash_cru/compile_aridity_and_soil_moisture.py \
     --basename $BASEPATH/global_splash_cru
 
 # Tidy up

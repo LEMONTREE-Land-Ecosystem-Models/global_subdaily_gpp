@@ -32,7 +32,7 @@ python3 $BASEPATH/global_splash_cru/splash_v1.0_py_version/splash_CRU_cli.py \
     --pre $TMPDIR/cru_2001_2020_pre.nc \
     --cld $TMPDIR/cru_2001_2020_cld.nc \
     --elv $TMPDIR/Asurf_land_cells.nc \
-    --out $BASEPATH/global_splash_cru/results/results_block_${PBS_ARRAY_INDEX}.nc \
+    --out $BASEPATH/global_splash_cru/splash_outputs/results_block_${PBS_ARRAY_INDEX}.nc \
     --block_number ${PBS_ARRAY_INDEX} \
     --total_blocks 50 \
     --n_process 7 
