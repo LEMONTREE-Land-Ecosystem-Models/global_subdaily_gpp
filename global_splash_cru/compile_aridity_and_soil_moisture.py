@@ -91,7 +91,7 @@ def compile_aridity_and_soil_moisture(basename: Path):
 
     # Export soil moisture data by year
     years, datasets = zip(*soilm_data.groupby("time.year"))
-    paths = [Path("soil_moisture_grids") / f"soil_moisture_{y}.nc" for y in years]
+    paths = [basename / "soil_moisture_grids" / f"soil_moisture_{y}.nc" for y in years]
     xarray.save_mfdataset(datasets, paths)
 
 
