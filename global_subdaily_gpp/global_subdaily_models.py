@@ -314,6 +314,7 @@ for this_lon in lon_vals:
     subdaily_pmod = FastSlowPModel(
         env=pm_env,
         fs_scaler=fsscaler,
+        handle_nan=True,
         fapar=this_lon_inputs["fapar"].data,
         ppfd=this_lon_inputs["ppfd"].data,
         alpha=1 / 15,
