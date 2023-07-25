@@ -5,8 +5,24 @@ cells from WFDE5 data in order to fit the subdaily P Model at global scale and 0
 resolution.
 
 The PBS_ARRAY_INDEX environment variable changes within each subjob and is used to
-control which longitudinal slice is analysed by each subjob. Note that the indexing
-uses 0-719.
+control which block of longitudinal slices is tackled by the subjob. The N_LON_SLICES
+environment variable is used to set how many blocks the 720 longitudinal bands are
+divided into to be handled.
+
+The timing and data requirements are roughly that loading and calculating the outputs
+for one longitudinal band (360 0.5° lat cells x 1 0.5° long cell x ~ 175200 hours of
+data over 20 years) runs at about 15 minites data loading and aligning and 5 minutes
+modelling with peak memory usage of 55GB. It is probably more efficient to load more
+data in one go, but multiples of 55GB don't really scale on the general/throughput
+nodes, so this also iterates the data loading.
+
+So: using N_LON_SLICES=30 gives 30 subjobs, each tackling 24 x 0.5° longitudinal bands
+and each running for around 24 * 20 / 60 = 8 hours, with some extra for variable
+runspeeds.
+
+If the WRITE_PMODEL_INPUTS environment variable is set to any value, the assembled,
+aligned and filled dataset for longitudinal slices will be written out to allow
+debugging, but these are not small!
 """
 
 import os
@@ -86,95 +102,28 @@ chunks = {"time": 744, "lat": 360, "lon": 1}
 #   to be processed in the particular run
 
 # ----------------------------------
-# TEMPERATURE DATA
+# BUILD THE MULTIPLE FILE DATASET LINKS TO THE SOURCE FILES TO BE RE-USED ACROSS BANDS
 # ----------------------------------
 
-# Find the temperature source files and open them as a dataset
+# Find the hourly WDFE temperature source files and open them as a dataset
 temp_files = list((wfde_path / "Tair").rglob("*.nc"))
 temp_source = xarray.open_mfdataset(temp_files, chunks=chunks)
 
-# Create an indexing dictionary to subset the time and longitude axes of the WFDE
-# datasets - note the use of a list in 'lon' to _retain_ that as a singleton axis.
-wfde_slices = {
-    "time": slice(start_time, end_time),
-    "lon": lon_vals,
-}
+# Find the hourly WDFE atmospheric pressure source files and open them as a dataset
+patm_files = list((wfde_path / "PSurf").rglob("*.nc"))
+patm_source = xarray.open_mfdataset(patm_files, chunks=chunks)
 
-
-# Extract temperature data and convert to °C
-temp_data = temp_source["Tair"].sel(wfde_slices).compute() - 273.15
-
-# Remove very cold cells
-temp_data = temp_data.where(temp_data >= -25.0, np.nan)
-
-# ----------------------------------
-# PATM DATA
-# ----------------------------------
-
-# Possible sources for atmospheric pressure
-use_constant_patm = True
-
-if use_constant_patm:
-    # Use elevation derived atmospheric pressure
-    # - Reduce to longitudinal slice and get patm
-    elev_slice = asurf_data.sel({"lon": lon_vals})
-    patm_slice = calc_patm(elev_slice.data)
-    # - broadcast to shape of time series
-    patm_data = xarray.DataArray(
-        np.broadcast_to(patm_slice, temp_data.shape), coords=temp_data.coords
-    )
-else:
-    # Find the atmospheric pressure source files and open them as a dataset
-    patm_files = list((wfde_path / "PSurf").rglob("*.nc"))
-    patm_source = xarray.open_mfdataset(patm_files, chunks=chunks)
-
-    # Extract atmospheric pressure in Pa
-    patm_data = patm_source["PSurf"].sel(wfde_slices).compute()
-
-# ----------------------------------
-# VPD DATA
-# ----------------------------------
-
-# Find the specific humidity files and open them as a dataset
+# Find the hourly WDFE specific humidity files and open them as a dataset
 qair_files = list((wfde_path / "Qair").rglob("*.nc"))
 qair_source = xarray.open_mfdataset(qair_files, chunks=chunks)
 
-# Extract specific humidity and convert to VPD: kg kg-1 to Pa.
-qair_data = qair_source["Qair"].sel(wfde_slices).compute().data
-# Function takes pressure in kPa and returns kPa
-vpd_data = convert_sh_to_vpd(sh=qair_data, ta=temp_data, patm=patm_data / 1000) * 1000
-
-# Set negative values to zero
-vpd_data = np.clip(vpd_data, 0, np.inf)
-
-# Convert to xarray
-vpd_data = xarray.DataArray(vpd_data, coords=temp_data.coords)
-
-# ----------------------------------
-# PPFD DATA
-# ----------------------------------
-
-# Find the downwelling shortwave radiation files and open them as a dataset
+# Find the hourly WDFE downwelling shortwave radiation files and open them as a dataset
 swdown_files = list((wfde_path / "SWdown").rglob("*.nc"))
 swdown_source = xarray.open_mfdataset(swdown_files, chunks=chunks)
 
-
-# Extract shortwave downwelling radiation and convert to PPFD
-ppfd_data = swdown_source["SWdown"].sel(wfde_slices).compute() * 2.04
-
-# ----------------------------------
-# FAPAR DATA
-# ----------------------------------
-
-# Load the daily fAPAR and then convert to subdaily
+# Find the daily SNU FAPAR files and open them as a dataset
 fapar_files = list(fapar_path.rglob("*.nc"))
 fapar_source = xarray.open_mfdataset(fapar_files, chunks=chunks)
-
-# Forward fill FAPAR to hourly sampling
-fapar_hourly = fapar_source["FPAR"].resample(time="1h").ffill()
-
-# Extract the data
-fapar_data = fapar_hourly.sel(wfde_slices).compute()
 
 # ----------------------------------
 # CO2 DATA
@@ -194,7 +143,8 @@ month_start = (
 # Convert to an array and resample to the hourly timesteps
 hourly_co2 = (
     xarray.DataArray(
-        co2_time_series["trend"], coords={"time": month_start.astype("datetime64[D]")}
+        co2_time_series["trend"],
+        coords={"time": month_start.astype("datetime64[D]")},
     )
     .resample(time="1h")
     .ffill()
@@ -203,68 +153,146 @@ hourly_co2 = (
 # Slice to the start time and endtime
 hourly_co2 = hourly_co2.sel({"time": slice(start_time, end_time)})
 
-# Broadcast the data to the correct shape and convert to xarray
-co2_data = np.broadcast_to(hourly_co2.data[:, np.newaxis, np.newaxis], temp_data.shape)
-
-co2_data = xarray.DataArray(co2_data, coords=temp_data.coords)
-
-print(
-    f"""
-Data loading finished after {time.time() - script_start} seconds:
-- lon_idx = {lon_vals}
-- temp_data.shape = {temp_data.shape}
-- patm_data.shape = {patm_data.shape}
-- vpd_data.shape = {vpd_data.shape}
-- co2_data.shape = {co2_data.shape}
-- fapar_data.shape = {fapar_data.shape}
-- ppfd_data.shape = {ppfd_data.shape}
-"""
-)
-
 # ----------------------------------
-# COMPILE INTO A SINGLE DATASET AND FORWARD FILL MISSING DATA
+# LOOP OVER THE LONGITUDINAL BANDS
 # ----------------------------------
 
-model_inputs = xarray.Dataset(
-    {
-        "temp": temp_data,
-        "patm": patm_data,
-        "vpd": vpd_data,
-        "co2": co2_data,
-        "fapar": fapar_data,
-        "ppfd": ppfd_data,
+for this_lon_val in lon_vals:
+    # Create an indexing dictionary to subset the time and longitude axes of the WFDE
+    # datasets - note the use of a list in 'lon' to _retain_ that as a singleton axis.
+    wfde_slices = {
+        "time": slice(start_time, end_time),
+        "lon": [this_lon_val],
     }
-)
 
-model_inputs = model_inputs.ffill(dim="time")
+    # ----------------------------------
+    # TEMPERATURE DATA
+    # ----------------------------------
 
-print(f"Dataset built and gaps filled after {time.time() - script_start} seconds")
+    # Extract temperature data and convert to °C
+    temp_data = temp_source["Tair"].sel(wfde_slices).compute() - 273.15
 
-# ----------------------------------
-# SAVE MODEL INPUTS IF REQUESTED
-# ----------------------------------
+    # Remove very cold cells
+    temp_data = temp_data.where(temp_data >= -25.0, np.nan)
 
-if os.environ.get("WRITE_PMODEL_INPUTS"):
-    out = model_inputs.to_netcdf(output_path / f"inputs_data_{array_index}.nc")
+    # ----------------------------------
+    # PATM DATA
+    # ----------------------------------
 
-    print(f"Input data saved after {time.time() - script_start} seconds")
-# ----------------------------------
-# MODEL FITTING
-# ----------------------------------
+    # Possible sources for atmospheric pressure
+    use_constant_patm = True
 
-# Loop over the loaded longitudinal bands, correcting the datetimes from UTC to local
-# time for calculating subdaily representative times
+    if use_constant_patm:
+        # Use elevation derived atmospheric pressure
+        # - Reduce to longitudinal slice and get patm
+        elev_slice = asurf_data.sel({"lon": [this_lon_val]})
+        patm_slice = calc_patm(elev_slice.data)
+        # - broadcast to shape of time series
+        patm_data = xarray.DataArray(
+            np.broadcast_to(patm_slice, temp_data.shape), coords=temp_data.coords
+        )
+    else:
+        # Extract atmospheric pressure in Pa
+        patm_data = patm_source["PSurf"].sel(wfde_slices).compute()
 
-results = []
+    # ----------------------------------
+    # VPD DATA
+    # ----------------------------------
 
-for this_lon in lon_vals:
-    # Get the data for this slice - retaining the dimension by passing as list
-    this_lon_inputs = model_inputs.sel(lon=[this_lon])
+    # Extract specific humidity and convert to VPD: kg kg-1 to Pa.
+    qair_data = qair_source["Qair"].sel(wfde_slices).compute().data
+
+    # Function takes pressure in kPa and returns kPa
+    vpd_data = (
+        convert_sh_to_vpd(sh=qair_data, ta=temp_data, patm=patm_data / 1000) * 1000
+    )
+
+    # Set negative values to zero
+    vpd_data = np.clip(vpd_data, 0, np.inf)
+
+    # Convert to xarray
+    vpd_data = xarray.DataArray(vpd_data, coords=temp_data.coords)
+
+    # ----------------------------------
+    # PPFD DATA
+    # ----------------------------------
+
+    # Extract shortwave downwelling radiation and convert to PPFD
+    ppfd_data = swdown_source["SWdown"].sel(wfde_slices).compute() * 2.04
+
+    # ----------------------------------
+    # FAPAR DATA
+    # ----------------------------------
+
+    # Forward fill FAPAR to hourly sampling
+    fapar_hourly = fapar_source["FPAR"].resample(time="1h").ffill()
+
+    # Extract the data
+    fapar_data = fapar_hourly.sel(wfde_slices).compute()
+
+    # ----------------------------------
+    # CO2 DATA
+    # ----------------------------------
+
+    # Broadcast the data to the correct shape and convert to xarray
+    co2_data = np.broadcast_to(
+        hourly_co2.data[:, np.newaxis, np.newaxis], temp_data.shape
+    )
+
+    co2_data = xarray.DataArray(co2_data, coords=temp_data.coords)
+
+    print(
+        f"""
+    Data loading finished after {time.time() - script_start} seconds:
+    - lon_idx = {lon_vals}
+    - temp_data.shape = {temp_data.shape}
+    - patm_data.shape = {patm_data.shape}
+    - vpd_data.shape = {vpd_data.shape}
+    - co2_data.shape = {co2_data.shape}
+    - fapar_data.shape = {fapar_data.shape}
+    - ppfd_data.shape = {ppfd_data.shape}
+    """
+    )
+
+    # ----------------------------------
+    # COMPILE INTO A SINGLE DATASET AND FORWARD FILL MISSING DATA
+    # ----------------------------------
+
+    this_lon_inputs = xarray.Dataset(
+        {
+            "temp": temp_data,
+            "patm": patm_data,
+            "vpd": vpd_data,
+            "co2": co2_data,
+            "fapar": fapar_data,
+            "ppfd": ppfd_data,
+        }
+    )
+
+    this_lon_inputs = this_lon_inputs.ffill(dim="time")
+
+    print(f"Dataset built and gaps filled after {time.time() - script_start} seconds")
+
+    # ----------------------------------
+    # SAVE MODEL INPUTS IF REQUESTED
+    # ----------------------------------
+
+    if os.environ.get("WRITE_PMODEL_INPUTS"):
+        out = this_lon_inputs.to_netcdf(output_path / f"inputs_data_{this_lon_val}.nc")
+
+        print(f"Input data saved after {time.time() - script_start} seconds")
+
+    # ----------------------------------
+    # MODEL FITTING
+    # ----------------------------------
+
+    # Correcting the datetimes from UTC to local time for calculating subdaily
+    # representative times and run the models.
 
     # Set up the local times - the lon idx in 0-719 defines 0.5° longitudinal bands,
     # each of width is 2 minutes wide (24 / (720) * 60 = 2.0). So, find the local time
     # for the left hand edge using this_lon_idx and add 1 minute to get the band centre.
-    local_time_delta = ((this_lon / 180) * 12) * 60 + 1
+    local_time_delta = ((this_lon_val / 180) * 12) * 60 + 1
     local_time_delta = np.timedelta64(round(local_time_delta), "m")
     local_time = this_lon_inputs.time + local_time_delta
 
@@ -322,7 +350,7 @@ for this_lon in lon_vals:
     )
 
     print(
-        f"Models fitted on lon {this_lon} after "
+        f"Models fitted on lon {this_lon_val} after "
         f"{time.time() - script_start} seconds"
     )
 
@@ -341,15 +369,12 @@ for this_lon in lon_vals:
             ).astype(np.float32),
         }
     )
-    results.append(res)
 
     print(
-        f"Data added to results on lon {this_lon} after "
+        f"Data added to results on lon {this_lon_val} after "
         f"{time.time() - script_start} seconds"
     )
 
-# Concatenate the results along the longitude axis and export
-out_data = xarray.concat(results, dim="lon")
-out_data.to_netcdf(output_path / f"gpp_data_{array_index}.nc")
+    res.to_netcdf(output_path / f"gpp_data_{this_lon_val}.nc")
 
-print(f"Data saved and script completed after {time.time() - script_start} seconds")
+    print(f"Data saved and script completed after {time.time() - script_start} seconds")
