@@ -1,5 +1,5 @@
 # Ignore data files in the data directory
-data/*.nc
+global_splash_cru/data/*.nc
 
 # Python caches
 __pycache__
