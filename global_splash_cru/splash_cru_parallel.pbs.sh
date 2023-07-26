@@ -11,10 +11,10 @@
 BASEPATH="/rds/general/project/lab-prentice-realm-data/live/global_subdaily_models/"
 
 # Stage the input files to avoid issues with multiple jobs reading them
-cp $BASEPATH/data/cru_2001_2020_tmp.nc $TMPDIR/cru_2001_2020_tmp.nc
-cp $BASEPATH/data/cru_2001_2020_pre.nc $TMPDIR/cru_2001_2020_pre.nc
-cp $BASEPATH/data/cru_2001_2020_cld.nc $TMPDIR/cru_2001_2020_cld.nc
-cp $BASEPATH/data/Asurf_land_cells.nc $TMPDIR/Asurf_land_cells.nc
+cp $BASEPATH/global_splash_cru/data/cru_2001_2020_tmp.nc $TMPDIR/cru_2001_2020_tmp.nc
+cp $BASEPATH/global_splash_cru/data/cru_2001_2020_pre.nc $TMPDIR/cru_2001_2020_pre.nc
+cp $BASEPATH/global_splash_cru/data/cru_2001_2020_cld.nc $TMPDIR/cru_2001_2020_cld.nc
+cp $BASEPATH/global_splash_cru/data/Asurf_land_cells.nc $TMPDIR/Asurf_land_cells.nc
 
 # Scaling:
 # - Roughly 100,000 land cells, each taking ~ 34 on a laptop

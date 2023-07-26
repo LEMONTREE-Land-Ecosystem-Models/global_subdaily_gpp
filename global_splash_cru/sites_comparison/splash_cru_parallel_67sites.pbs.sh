@@ -11,9 +11,9 @@ BASEPATH="/rds/general/project/lab-prentice-realm-data/live/global_subdaily_mode
 
 # Stage the input files to avoid issues with multiple jobs reading them
 
-cp $BASEPATH/data/cru_2001_2020_tmp.nc $TMPDIR/cru_2001_2020_tmp.nc
-cp $BASEPATH/data/cru_2001_2020_pre.nc $TMPDIR/cru_2001_2020_pre.nc
-cp $BASEPATH/data/cru_2001_2020_cld.nc $TMPDIR/cru_2001_2020_cld.nc
+cp $BASEPATH/global_splash_cru/data/cru_2001_2020_tmp.nc $TMPDIR/cru_2001_2020_tmp.nc
+cp $BASEPATH/global_splash_cru/data/cru_2001_2020_pre.nc $TMPDIR/cru_2001_2020_pre.nc
+cp $BASEPATH/global_splash_cru/data/cru_2001_2020_cld.nc $TMPDIR/cru_2001_2020_cld.nc
 cp $BASEPATH/global_splash_cru/sites_comparison/67Sites_geo_info.nc \
    $TMPDIR/67Sites_geo_info.nc
 
