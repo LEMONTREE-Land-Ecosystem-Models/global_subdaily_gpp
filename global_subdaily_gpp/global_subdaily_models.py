@@ -20,6 +20,12 @@ So: using N_LON_SLICES=30 gives 30 subjobs, each tackling 24 x 0.5° longitudina
 and each running for around 24 * 20 / 60 = 8 hours, with some extra for variable
 runspeeds.
 
+By default, the number of longitudinal slices is set to the -179.75 to 179.75 range of
+the input grids. However errors occurring on the HPC can leave blocks incomplete. To
+make it easier to fill these gaps, a file of target longitude bands can be provided
+using the TARGET_LON_BANDS environment variable. This file should simply contain the
+longitude values of the bands to run, one per line.
+
 If the WRITE_PMODEL_INPUTS environment variable is set to any value, the assembled,
 aligned and filled dataset for longitudinal slices will be written out to allow
 debugging, but these are not small!
@@ -67,7 +73,7 @@ end_time = np.datetime64("2019-12-31 23:59")
 asurf_data = xarray.load_dataarray(wfde_path / "Elev" / "ASurf_WFDE5_CRU_v2.0.nc")
 
 # ----------------------------------
-# IDENTIFY LONGITUDINAL BLOCK
+# IDENTIFY LONGITUDINAL BLOCKS
 # ----------------------------------
 
 # Use longitudinal stripes to control for timing: data is sampled at UTC, so local time
@@ -77,7 +83,16 @@ asurf_data = xarray.load_dataarray(wfde_path / "Elev" / "ASurf_WFDE5_CRU_v2.0.nc
 # The array index gives the chunk number given the number of chunks, defaulting to a
 # single longitudinal band per chunk
 n_chunks = int(os.environ.get("N_LON_SLICES", 720))
-lon_chunks = np.split(asurf_data.lon.data, n_chunks)
+
+target_lon_bands = os.environ.get("TARGET_LON_BANDS")
+if target_lon_bands is None:
+    # Divide the longitudinal coordinates of the input grid into chunks
+    lon_chunks = np.array_split(asurf_data.lon.data, n_chunks)
+else:
+    # Divide the actual longitudinal values provided in an input file into chunks
+    lon_chunks = np.array_split(np.loadtxt(target_lon_bands), n_chunks)
+
+
 # PBS job array indices start at 1
 array_index = int(os.environ["PBS_ARRAY_INDEX"])
 lon_vals = lon_chunks[array_index]
