@@ -244,7 +244,7 @@ for this_lon_val in lon_vals:
     print(
         f"""
     Data loading finished after {time.time() - script_start} seconds:
-    - lon_idx = {lon_vals}
+    - lon band = {this_lon_val}
     - temp_data.shape = {temp_data.shape}
     - patm_data.shape = {patm_data.shape}
     - vpd_data.shape = {vpd_data.shape}
