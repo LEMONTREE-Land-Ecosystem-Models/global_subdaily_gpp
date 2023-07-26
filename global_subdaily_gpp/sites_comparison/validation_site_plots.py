@@ -31,7 +31,7 @@ sites["lat_band"] = np.array(
 sites["lat_idx"] = [int(np.where(lat_bands == a)[0][0]) for a in sites.lat_band]
 
 
-pdf = PdfPages("temp.pdf")
+pdf = PdfPages("site_local_global_gpp_comparison.pdf")
 
 for sitename, fpath in giulia_sites.items():
     # Load the data and get datetimes and decimal days in month
@@ -54,7 +54,7 @@ for sitename, fpath in giulia_sites.items():
     )
 
     # Open the provided results file if found
-    global_path = Path(f"../results/gpp_data_{int(site_info.lon_idx)}.nc")
+    global_path = Path(f"../results/gpp_data_{site_info.lon_band}.nc")
 
     if not global_path.exists():
         print("Missing global results. Skipping.")
@@ -97,11 +97,11 @@ for sitename, fpath in giulia_sites.items():
             layout="constrained",
         )
 
-        for month_idx, this_month in enumerate(months):
+        for plot_idx, this_month in enumerate(months):
             # Plot the predictions
-            print(month_idx, this_month, 2 * month_idx, 2 * month_idx + 1)
-            local_ax = axes[2 * month_idx]
-            global_ax = axes[2 * month_idx + 1]
+            print(plot_idx, this_month, 2 * plot_idx, 2 * plot_idx + 1)
+            local_ax = axes[2 * plot_idx]
+            global_ax = axes[2 * plot_idx + 1]
 
             # Get indices of data to plot from local data - month within year
             local_to_plot = (local_datetime.dt.year == year) & (
@@ -112,25 +112,30 @@ for sitename, fpath in giulia_sites.items():
             local_ax.plot(
                 local_decimal_day_in_month[local_to_plot],
                 local_data["GPPp"][local_to_plot] * 12.011,
-                label="Standard P Model",
+                label="Non-acclimating P Model",
                 color="grey",
+                linewidth=1,
             )
             local_ax.plot(
                 local_decimal_day_in_month[local_to_plot],
                 local_data["GPPpOpt"][local_to_plot] * 12.011,
-                label="Subdaily P Model",
+                label="Acclimating P Model",
                 color="red",
+                linewidth=1,
             )
 
             # Add a plot label
             local_ax.text(
                 0.95,
                 0.95,
-                f"{month_names[this_month - 1]}: Local",
+                f"{month_names[this_month - 1]}: Giulia local data",
                 transform=local_ax.transAxes,
                 va="top",
                 ha="right",
             )
+
+            if plot_idx == 0:
+                local_ax.legend()
 
             # Get indices of data to plot from global data
             global_to_plot = (global_datetime.dt.year == year) & (
@@ -141,31 +146,35 @@ for sitename, fpath in giulia_sites.items():
             global_ax.plot(
                 global_decimal_day_in_month[global_to_plot],
                 global_subset["standard_gpp"][global_to_plot],
-                label="Standard P Model",
+                label="Non-acclimating P Model",
+                color="grey",
+                linewidth=1,
             )
             global_ax.plot(
                 global_decimal_day_in_month[global_to_plot],
                 global_subset["subdaily_gpp"][global_to_plot],
-                label="Standard P Model",
+                label="Acclimating P Model",
+                color="red",
+                linewidth=1,
             )
 
             # Add a plot label
             global_ax.text(
                 0.95,
                 0.95,
-                f"{month_names[this_month - 1]}: Global",
+                f"{month_names[this_month - 1]}: Pyrealm global data",
                 transform=global_ax.transAxes,
                 va="top",
                 ha="right",
             )
 
-            # if month_idx == 0:
-            #     local_ax.legend()
+            if plot_idx == 0:
+                local_ax.legend()
 
         # Add a titles and axis labels, save figure and close page.
         # fig.tight_layout()
         fig.supxlabel("Decimal day of month")
-        fig.supylabel("GPP")
+        fig.supylabel("GPP (µg C m-2 s-1)")
         fig.suptitle(f"{sitename} : {year}")
         pdf.savefig()
         plt.close(fig)
