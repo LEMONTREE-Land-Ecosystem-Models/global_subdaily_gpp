@@ -15,6 +15,4 @@ __pycache__
 
 # Output results files
 global_splash_cru/results/*.nc
-
-# Keep Giulia's results files private
-global_splash_cru/sites_comparison/giulia_splash_sites/*.csv
+global_subdaily_gpp/results/*.nc
