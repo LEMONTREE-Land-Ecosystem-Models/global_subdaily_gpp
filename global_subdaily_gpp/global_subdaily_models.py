@@ -324,9 +324,14 @@ for this_lon_val in lon_vals:
     # outputs back correctly to UTC times.
 
     dates, n_obs = np.unique(this_lon_inputs.local_time.dt.date, return_counts=True)
-    dates_to_drop, time_pad_lengths = zip(
-        *[(d, n) for d, n in zip(dates, n_obs) if n < 24]
-    )
+    dates_and_obs_to_drop = [(d, n) for d, n in zip(dates, n_obs) if n < 24]
+
+    # Handle lon bands where no incomplete days are found as well as those that do need
+    # to be subsetted to complete days.
+    if dates_and_obs_to_drop:
+        dates_to_drop, time_pad_lengths = zip(*dates_and_obs_to_drop)
+    else:
+        dates_to_drop, time_pad_lengths = ([], (0, 0))
 
     complete_day_data = this_lon_inputs.where(
         np.logical_not(local_time.dt.date.isin(dates_to_drop)), drop=True
