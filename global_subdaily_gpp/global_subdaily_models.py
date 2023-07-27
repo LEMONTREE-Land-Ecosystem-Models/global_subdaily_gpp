@@ -311,25 +311,31 @@ for this_lon_val in lon_vals:
     local_time_delta = np.timedelta64(round(local_time_delta), "m")
     local_time = this_lon_inputs.time + local_time_delta
 
-    # Assign the correct local time coordinates for this longitude slice
-    this_lon_inputs = this_lon_inputs.assign_coords(time=local_time)
+    # Add parallel local time coordinates for this longitude slice
+    this_lon_inputs = this_lon_inputs.assign_coords(local_time=("time", local_time))
 
-    # Moving to local times shifts the datetimes from complete days to partial days,
-    # which are not currently supported by the FastSlowScaler. So need to reduce the
-    # analysis to complete days by trimming a day from each end to remove partials.
-    this_lon_inputs = this_lon_inputs.sel(
-        time=slice(
-            start_time + np.timedelta64(1, "D"),
-            end_time - np.timedelta64(1, "D"),
-        )
+    # Moving to local times shifts the datetimes from complete days to partial days:
+    # * FastSlowScaler currently requires full days,
+    # * But also, we need the data to be aligned correctly along the time axis when
+    #   built back into global grids
+    # So need to identify incomplete days and only run those, but subsequently pad the
+    # outputs back correctly to UTC times.
+
+    dates, n_obs = np.unique(this_lon_inputs.local_time.dt.date, return_counts=True)
+    dates_to_drop, time_pad_lengths = zip(
+        *[(d, n) for d, n in zip(dates, n_obs) if n < 24]
+    )
+
+    complete_day_data = this_lon_inputs.where(
+        np.logical_not(local_time.dt.date.isin(dates_to_drop)), drop=True
     )
 
     # Get the P Model environment
     pm_env = PModelEnvironment(
-        tc=this_lon_inputs["temp"].data,
-        patm=this_lon_inputs["patm"].data,
-        vpd=this_lon_inputs["vpd"].data,
-        co2=this_lon_inputs["co2"].data,
+        tc=complete_day_data["temp"].data,
+        patm=complete_day_data["patm"].data,
+        vpd=complete_day_data["vpd"].data,
+        co2=complete_day_data["co2"].data,
     )
 
     # Print out a data summary for the photosynthetic environment
@@ -338,8 +344,8 @@ for this_lon_val in lon_vals:
     # Fit the standard P Model
     standard_pmod = PModel(pm_env, kphio=1 / 8)
     standard_pmod.estimate_productivity(
-        fapar=this_lon_inputs["fapar"].data,
-        ppfd=this_lon_inputs["ppfd"].data,
+        fapar=complete_day_data["fapar"].data,
+        ppfd=complete_day_data["ppfd"].data,
     )
 
     # Print out a summary for the standard model
@@ -347,7 +353,7 @@ for this_lon_val in lon_vals:
 
     # Set a half hourly window around noon - with hourly data this is actually just
     # picking the noon value.
-    fsscaler = FastSlowScaler(this_lon_inputs.time.data)
+    fsscaler = FastSlowScaler(complete_day_data.local_time.data)
     fsscaler.set_window(
         window_center=np.timedelta64(12, "h"),
         half_width=np.timedelta64(1, "h"),
@@ -358,8 +364,8 @@ for this_lon_val in lon_vals:
         env=pm_env,
         fs_scaler=fsscaler,
         handle_nan=True,
-        fapar=this_lon_inputs["fapar"].data,
-        ppfd=this_lon_inputs["ppfd"].data,
+        fapar=complete_day_data["fapar"].data,
+        ppfd=complete_day_data["ppfd"].data,
         alpha=1 / 15,
         kphio=1 / 8,
     )
@@ -373,14 +379,14 @@ for this_lon_val in lon_vals:
     res = xarray.Dataset(
         {
             "standard_gpp": xarray.DataArray(
-                standard_pmod.gpp,
+                np.pad(standard_pmod.gpp, (time_pad_lengths, (0, 0), (0, 0))),
                 dims=["time", "lat", "lon"],
-                coords=this_lon_inputs.coords,
+                coords=complete_day_data.coords,
             ).astype(np.float32),
             "subdaily_gpp": xarray.DataArray(
-                subdaily_pmod.gpp,
+                np.pad(subdaily_pmod.gpp, (time_pad_lengths, (0, 0), (0, 0))),
                 dims=["time", "lat", "lon"],
-                coords=this_lon_inputs.coords,
+                coords=complete_day_data.coords,
             ).astype(np.float32),
         }
     )
