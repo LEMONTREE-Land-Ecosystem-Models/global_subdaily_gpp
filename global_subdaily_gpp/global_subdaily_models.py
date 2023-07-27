@@ -309,10 +309,12 @@ for this_lon_val in lon_vals:
     # for the left hand edge using this_lon_idx and add 1 minute to get the band centre.
     local_time_delta = ((this_lon_val / 180) * 12) * 60 + 1
     local_time_delta = np.timedelta64(round(local_time_delta), "m")
-    local_time = this_lon_inputs.time.data + local_time_delta
+    local_time = this_lon_inputs.time + local_time_delta
 
     # Add parallel local time coordinates for this longitude slice
-    this_lon_inputs = this_lon_inputs.assign_coords(local_time=("time", local_time))
+    this_lon_inputs = this_lon_inputs.assign_coords(
+        local_time=("time", local_time.data)
+    )
 
     # Moving to local times shifts the datetimes from complete days to partial days:
     # * FastSlowScaler currently requires full days,
