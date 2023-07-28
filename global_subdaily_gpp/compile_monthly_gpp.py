@@ -3,11 +3,12 @@
 grids. It partitions the time series into more manageable monthly output files.
 
 It is written to be run as an array job, with each subjob handling a subset of the time
-series.
+series. 
 """
 
 import os
 from pathlib import Path
+import time
 
 import xarray
 
@@ -35,9 +36,10 @@ year = array_index + 2000
 # Find the 0.5° band output files
 results_files = list(results_dir.rglob("*.nc"))
 
+start_time = time.time()
+print("Starting script")
 
 # Extract each month
-
 for month in range(1, 13):
 
     def _preprocess(ds):
@@ -51,3 +53,8 @@ for month in range(1, 13):
     )
 
     results_month.to_netcdf(months_dir / f"gpp_data_{year}_{month:02d}.nc")
+
+    print(
+        f"Year {year}, month {month:02d} written "
+        f"after {time.time() - start_time} seconds"
+    )
