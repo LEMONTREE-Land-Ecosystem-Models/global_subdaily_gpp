@@ -64,13 +64,21 @@ for sitename, fpath in giulia_sites.items():
 
     # Subset to the time series and cell required
     global_subset = global_data.sel(
-        time=slice(local_datetime.min().to_numpy(), local_datetime.max().to_numpy()),
         lat=site_info.lat_band,
         lon=site_info.lon_band,
     )
 
-    # Get the global time series and decimal day in month to plot by month
-    global_datetime = global_subset["time"]
+    global_subset = global_subset.where(
+        np.logical_and(
+            global_data.local_time > local_datetime.min().to_numpy(),
+            global_data.local_time < local_datetime.max().to_numpy(),
+        ),
+        drop=True,
+    )
+
+    # Get the local datetime data from the global time series and decimal day in month
+    # to plot by month
+    global_datetime = global_subset["local_time"]
     global_decimal_day_in_month = (
         global_datetime.dt.day
         + global_datetime.dt.hour / 24
