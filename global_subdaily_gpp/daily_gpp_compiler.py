@@ -25,8 +25,10 @@ standard_daily = []
 subdaily_daily = []
 subdaily_with_beta_daily = []
 
-# Open soil beta penalty dataset from yearly files
+# Open soil beta penalty dataset from yearly files and rename 'time' to 'date' to allow
+# mapping onto GPP grouped by date
 soil_beta = xarray.open_mfdataset(soil_beta_path.glob("soil_moisture*.nc"))
+soil_beta = soil_beta.rename(time="date")
 
 for each_file in results_files[350:370]:
     # Loop over the longitudinal files, appending daily summaries for each band to the

@@ -4,6 +4,59 @@ This repository contains code to fit the P Model using slow responses on global 
 using `pyrealm` and to calculate global soil moisture and aridity inputs using SPLASH
 v1.0 to calculate the Mengoli et al soil moisture penalty factors for GPP.
 
+## SPLASH calculations of aridity and soil moisture
+
+The Python code version of the SPLASH v1.0 release is used to calculate daily soil
+moisture and climatological aridity indices at 0.5° spatial resolution. These values are
+calculated using CRU TS4.06 data, provided as 0.5° resolution monthly data:
+
+* Monthly air temperatures are filled to give identical daily values.
+* Monthly precipitation is evenly divided across the days of each month.
+* Monthly sunshine fraction is calculated as the inverse of CRU cloud fraction
+  proportions.
+
+The `compile_cru.py` Python script is used to read the original decadal files for
+2000-2019 and reduce the dataset from lat/lon grids to a dataset of landcells identified
+by grid ID for processing. This is because the original SPLASH implementation can only
+calculate results for a single time series, so iterating over global datasets is much
+faster if reduced to only valid inputs.
+
+### Implementation of SPLASH calculation
+
+The SPLASH calculations use a downloaded copy of the original release of the Python
+version of SPLASH 1.0. This directory of code files is then called using
+`splash_CRU_cli.py` which provides a proper command line interface to call the SPLASH
+functionality. The `splash_cru_parallel.pbs.sh` script is then used to submit an array
+job to the HPC - each subjob tackles a subset of the global land cells, and the Python
+script uses multi-core processing within each subjob to further accelerate the
+calculations.
+
+### Validation of SPLASH data
+
+The data and scripts in the `sites_comparison` directory are used to run the SPLASH
+model for 67 sites used by Giulia in FluxNet site analyses by running the
+`sites_comparison/splash_cru_parallel_67sites.pbs.sh` script on the HPC. This requires
+the input file `67Sites_geo_info.csv` containing the details for the 67 sites, created
+using `67Sites_to_cell_list.py` and creates the output files `67Sites_results.nc`.
+
+These can then be compared against the outputs of the earlier analyses run by Giulia,
+saved in the `giulia_splash_sites` directory. The `AI_comparison.R` file generates site
+by site plots showing the annual sequences of aridity index and the climatological 20
+year AI for the sites.
+
+### Running global SPLASH calculations
+
+The `splash_cru_parallel.pbs.sh` file is used to run the full set of global 0.5° land
+cells, detailed in the `data/Asurf_land_cells.nc` file created by `compile_cru.py`,
+through the SPLASH calculations on the HPC.
+
+### Compiling output aridity and soil moisture files
+
+The `compile_aridity_and_soil_moisture.py` and
+`compile_aridity_and_soil_moisture.pbs.sh` files are then used to take the resulting
+land cells results and calculate global gridded aridity indices and soil moisture time
+series.
+
 ## P Model fitting
 
 The models are fitted at a 0.5° global resolution to hourly data between 2000-01-01 and
@@ -98,57 +151,22 @@ out as a separate NetCDF file.
 
 ### Compiling output files
 
-TBD
+The `daily_gpp_grids` directory contains compiled GPP estimates in gC m-2 day from
+2001 - 2010. The values include the predictions of the standard P Model GPP, the
+subdaily P Model GPP and the subdaily P Model GPP applying the Mengoli et al soil beta
+correction.
 
-## SPLASH calculations of aridity and soil moisture
+The hourly GPP output data are processed as follows:
 
-The Python code version of the SPLASH v1.0 release is used to calculate daily soil
-moisture and climatological aridity indices at 0.5° spatial resolution. These values are
-calculated using CRU TS4.06 data, provided as 0.5° resolution monthly data:
+* The hourly outputs are extracted from each longitudinal band for the focal time
+  period.
+* The hourly values are grouped into daily sets of observations using the `local_time`
+  coordinates in those files. This ensures that all grid cells are true midnight to
+  midnight means, rather than UTC midnight to midnight, regardless of their longitude.
+* The mean GPP within days is calculated for both the standard and subdaily P Model
+  outputs and converted from µgC m-2 s-1 to gC m-2 day-1.
+* The matching Mengoli soil beta factor is the extracted for the longitudinal band and
+  time period and applied to the subdaily estimate of daily GPP.
 
-* Monthly air temperatures are filled to give identical daily values.
-* Monthly precipitation is evenly divided across the days of each month.
-* Monthly sunshine fraction is calculated as the inverse of CRU cloud fraction
-  proportions.
-
-The `compile_cru.py` Python script is used to read the original decadal files for
-2000-2019 and reduce the dataset from lat/lon grids to a dataset of landcells identified
-by grid ID for processing. This is because the original SPLASH implementation can only
-calculate results for a single time series, so iterating over global datasets is much
-faster if reduced to only valid inputs.
-
-### Implementation of SPLASH calculation
-
-The SPLASH calculations use a downloaded copy of the original release of the Python
-version of SPLASH 1.0. This directory of code files is then called using
-`splash_CRU_cli.py` which provides a proper command line interface to call the SPLASH
-functionality. The `splash_cru_parallel.pbs.sh` script is then used to submit an array
-job to the HPC - each subjob tackles a subset of the global land cells, and the Python
-script uses multi-core processing within each subjob to further accelerate the
-calculations.
-
-### Validation of SPLASH data
-
-The data and scripts in the `sites_comparison` directory are used to run the SPLASH
-model for 67 sites used by Giulia in FluxNet site analyses by running the
-`sites_comparison/splash_cru_parallel_67sites.pbs.sh` script on the HPC. This requires
-the input file `67Sites_geo_info.csv` containing the details for the 67 sites, created
-using `67Sites_to_cell_list.py` and creates the output files `67Sites_results.nc`.
-
-These can then be compared against the outputs of the earlier analyses run by Giulia,
-saved in the `giulia_splash_sites` directory. The `AI_comparison.R` file generates site
-by site plots showing the annual sequences of aridity index and the climatological 20
-year AI for the sites.
-
-### Running global SPLASH calculations
-
-The `splash_cru_parallel.pbs.sh` file is used to run the full set of global 0.5° land
-cells, detailed in the `data/Asurf_land_cells.nc` file created by `compile_cru.py`,
-through the SPLASH calculations on the HPC.
-
-### Compiling output aridity and soil moisture files
-
-The `compile_aridity_and_soil_moisture.py` and
-`compile_aridity_and_soil_moisture.pbs.sh` files are then used to take the resulting
-land cells results and calculate global gridded aridity indices and soil moisture time
-series.
+The resulting data from longitudinal bands are then compiled into global grids and saved
+into annual files containing each of the three GPP estimates.
