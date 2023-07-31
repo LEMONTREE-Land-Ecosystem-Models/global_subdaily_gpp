@@ -59,6 +59,7 @@ for each_file in results_files[350:370]:
             daily_subdaily_pmod
             * soil_beta.sel(daily_subdaily_pmod.coords).soilmstress_mengoli
         ).compute()
+        daily_subdaily_pmod_with_beta.name = "subdaily_gpp_with_mengoli_beta"
 
         # Stores for processed data
         standard_daily.append(daily_standard_pmod)
