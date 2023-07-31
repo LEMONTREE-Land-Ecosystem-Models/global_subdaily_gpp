@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import numpy as np
@@ -31,18 +32,22 @@ subdaily_with_beta_daily = []
 soil_beta = xarray.open_mfdataset(soil_beta_path.glob("soil_moisture*.nc"))
 soil_beta = soil_beta.rename(time="date")
 
-for each_file in results_files[350:352]:
+# PBS job array indices start at 0 to target different years
+year = 2001 + int(os.environ["PBS_ARRAY_INDEX"])
+
+
+for each_file in results_files:
     # Loop over the longitudinal files, appending daily summaries for each band to the
     # lists. Note that the grouping is on the _local_time_ recorded in each file to
     # ensure that these are midnight to midnight means in each location rather than
     # using the UTC times.
 
     with xarray.open_dataset(each_file) as dat:
-        # Reduce to the 2001-2010 focal period along the time axis
+        # Reduce to the year focal period for this subjob along the time axis
         dat = dat.isel(
             time=np.logical_and(
-                dat.local_time >= np.datetime64("2001-01-01"),
-                dat.local_time <= np.datetime64("2010-12-31"),
+                dat.local_time >= np.datetime64(f"{year}-01-01"),
+                dat.local_time <= np.datetime64(f"{year}-12-31"),
             )
         )
 
@@ -88,6 +93,4 @@ out_dir = Path(
     "global_subdaily_gpp/daily_gpp_grids"
 )
 
-years, datasets = zip(*dataset.groupby("date.year"))
-paths = [out_dir / f"daily_gpp{y}.nc" for y in years]
-xarray.save_mfdataset(datasets, paths)
+dataset.to_netcdf(out_dir / f"daily_gpp_{year}.nc")
