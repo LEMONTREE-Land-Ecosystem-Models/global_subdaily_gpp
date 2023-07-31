@@ -83,6 +83,6 @@ out_dir = Path(
     "global_subdaily_gpp/daily_gpp_grids"
 )
 
-years, datasets = zip(*dataset.groupby("time.year"))
+years, datasets = zip(*dataset.groupby("date.year"))
 paths = [out_dir / f"daily_gpp{y}.nc" for y in years]
 xarray.save_mfdataset(datasets, paths)
