@@ -51,7 +51,7 @@ for each_file in results_files[350:370]:
             dat.standard_gpp.groupby("local_time.date").mean() * (60 * 60 * 24) / 1e6
         )
         daily_subdaily_pmod = (
-            dat.standard_gpp.groupby("local_time.date").mean() * (60 * 60 * 24) / 1e6
+            dat.subdaily_gpp.groupby("local_time.date").mean() * (60 * 60 * 24) / 1e6
         )
 
         # Now need to multiply the subdaily value by the soil beta penalty
@@ -65,7 +65,7 @@ for each_file in results_files[350:370]:
         subdaily_daily.append(daily_subdaily_pmod)
         subdaily_with_beta_daily.append(daily_subdaily_pmod_with_beta)
 
-        print("Processed file: {each_file}")
+        print(f"Processed file: {each_file}")
 
 
 # Compile and export
@@ -73,12 +73,7 @@ standard_daily = xarray.merge(standard_daily)
 subdaily_daily = xarray.merge(subdaily_daily)
 subdaily_with_beta_daily = xarray.merge(subdaily_with_beta_daily)
 
-
-dataset = xarray.Dataset(
-    standard_daily=standard_daily,
-    subdaily_daily=subdaily_daily,
-    subdaily_with_beta_daily=subdaily_with_beta_daily,
-)
+dataset = xarray.merge([standard_daily, subdaily_daily, subdaily_with_beta_daily])
 
 # Export daily GPP grids data by year
 
