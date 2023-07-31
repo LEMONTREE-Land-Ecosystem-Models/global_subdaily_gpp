@@ -1,7 +1,8 @@
 from pathlib import Path
 
-import xarray
 import numpy as np
+import pandas
+import xarray
 
 results_dir = Path(
     "/rds/general/project/lab-prentice-realm-data/live/global_subdaily_models/"
@@ -30,7 +31,7 @@ subdaily_with_beta_daily = []
 soil_beta = xarray.open_mfdataset(soil_beta_path.glob("soil_moisture*.nc"))
 soil_beta = soil_beta.rename(time="date")
 
-for each_file in results_files[350:370]:
+for each_file in results_files[350:352]:
     # Loop over the longitudinal files, appending daily summaries for each band to the
     # lists. Note that the grouping is on the _local_time_ recorded in each file to
     # ensure that these are midnight to midnight means in each location rather than
@@ -74,7 +75,11 @@ standard_daily = xarray.merge(standard_daily)
 subdaily_daily = xarray.merge(subdaily_daily)
 subdaily_with_beta_daily = xarray.merge(subdaily_with_beta_daily)
 
+# Build the dataset with three variables. Also need to update the date coordinates from
+# datetime.date objects to datetime64 in order to then group the outputs by year using
+# the `dt` accessor funcationality.
 dataset = xarray.merge([standard_daily, subdaily_daily, subdaily_with_beta_daily])
+dataset = dataset.assign_coords(date=pandas.to_datetime(dataset.date))
 
 # Export daily GPP grids data by year
 
