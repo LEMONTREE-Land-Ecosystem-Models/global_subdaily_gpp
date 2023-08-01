@@ -164,9 +164,14 @@ The hourly GPP output data are processed as follows:
   coordinates in those files. This ensures that all grid cells are true midnight to
   midnight means, rather than UTC midnight to midnight, regardless of their longitude.
 * The mean GPP within days is calculated for both the standard and subdaily P Model
-  outputs and converted from µgC m-2 s-1 to gC m-2 day-1.
+  outputs and converted from µgC m-2 s-1 to gC m-2 day-1
+  ($(60 \times 60 \times 24) / 1e6$).
 * The matching Mengoli soil beta factor is the extracted for the longitudinal band and
   time period and applied to the subdaily estimate of daily GPP.
 
 The resulting data from longitudinal bands are then compiled into global grids and saved
 into annual files containing each of the three GPP estimates.
+
+For some reason, the `daily_gpp_compiler.py` script has a huge RAM requirement. The
+eventual annual files are only 2.2 GB, but each annual subjob requires ~540 GB of RAM.
+This seems _very_ odd to me.

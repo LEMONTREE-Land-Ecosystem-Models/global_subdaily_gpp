@@ -2,7 +2,7 @@
 
 #PBS -l walltime=08:00:00
 #PBS -l select=1:ncpus=1:mem=300gb:gpfs=true
-#PBS -J 0-9
+#PBS -J 0-19
 #PBS -j oe
 
 # This script runs the compilation of longitudinal band files into daily GPP estimates

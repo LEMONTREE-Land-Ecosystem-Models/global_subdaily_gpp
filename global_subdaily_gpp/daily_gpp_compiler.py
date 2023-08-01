@@ -33,7 +33,7 @@ soil_beta = xarray.open_mfdataset(soil_beta_path.glob("soil_moisture*.nc"))
 soil_beta = soil_beta.rename(time="date")
 
 # PBS job array indices start at 0 to target different years
-year = 2001 + int(os.environ["PBS_ARRAY_INDEX"])
+year = 2000 + int(os.environ["PBS_ARRAY_INDEX"])
 
 
 for each_file in results_files:
