@@ -386,12 +386,20 @@ for this_lon_val in lon_vals:
     res = xarray.Dataset(
         {
             "standard_gpp": xarray.DataArray(
-                np.pad(standard_pmod.gpp, (time_pad_lengths, (0, 0), (0, 0))),
+                np.pad(
+                    standard_pmod.gpp,
+                    (time_pad_lengths, (0, 0), (0, 0)),
+                    constant_values=np.nan,
+                ),
                 dims=["time", "lat", "lon"],
                 coords=this_lon_inputs.coords,
             ).astype(np.float32),
             "subdaily_gpp": xarray.DataArray(
-                np.pad(subdaily_pmod.gpp, (time_pad_lengths, (0, 0), (0, 0))),
+                np.pad(
+                    subdaily_pmod.gpp,
+                    (time_pad_lengths, (0, 0), (0, 0)),
+                    constant_values=np.nan,
+                ),
                 dims=["time", "lat", "lon"],
                 coords=this_lon_inputs.coords,
             ).astype(np.float32),
